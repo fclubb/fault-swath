@@ -1,5 +1,6 @@
 # fault-swath
 Code for making a swath profile along a fault
+
 Bisection method
 
 1. Read in shapefile of the fault
