@@ -2,10 +2,16 @@
 # of the cluster along the swath
 # FJC 26/11/18
 
+# set backend to run on server
+import matplotlib
+matplotlib.use('Agg')
+
 import numpy as np
 import pandas as pd
 import math
 import matplotlib.pyplot as plt
+import os
+import time
 # shapefiles
 from fiona import collection
 from shapely.geometry import shape, LineString, mapping
@@ -55,6 +61,10 @@ def get_points_along_line(n=1024):
 
     return points, distances
 
+# get_channel_slope_around_each_point(pts):
+#     """
+#     Read in a list of shapely points and get a circle with a defined radius around each point
+
 def get_orthogonal_coefficients(pts):
     """
     For a list of shapely points, get the line orthogonal to each point and then save
@@ -79,9 +89,7 @@ def get_orthogonal_coefficients(pts):
             y1 = pts[i-1].y
             y2 = pts[i+1].y
         # line between pts[i-1], i+1
-        #print(Point(pts[i-1].x, pts[i-1].y))
         l1 = Line(Point(x1, y1), Point(x2, y2))
-        # perpendicular line going through pts[i]
         l2 = l1.perpendicular_line(Point(pts[i].x, pts[i].y))
         # a needs to be > 0: get the sign of a and multiply the coefficients by this.
         _ = np.sign(N(l2.coefficients[0]))
@@ -116,26 +124,33 @@ def bisection_method(points, coeffs, distances, cluster_csv, output_csv):
     #print(qs)
     #print(coeffs)
     while (int(m)-1-i >= -1):
-        cs = [coeffs[q] for q in qs]
+        t0=time.time()
+        cs = np.asarray([coeffs[q] for q in qs])
+        t1=time.time()
+        print("cs executed in: ", t1-t0)
         # calculate alpha: ax+bx+c=alpha for each river point (x and y from river point,
         # a, b, and c from the line)
-        alpha = [np.sign(c[0]*x + c[1]*y + c[2]) for x,y,c in zip(cluster_x, cluster_y, cs)]
+        t0=time.time()
+        alpha = np.sign(cs[:,0]*cluster_x + cs[:,1]*cluster_y + cs[:,2])
+        t1=time.time()
+        print("alpha executed in: ", t1-t0)
         # if alpha > 0, river point is to the right of the line. If alpha < 0, river point is
         # to the left. If alpha = 0, point is on the line.
         # Take further baseline point depending on whether alpha is positive or negative
+        t0=time.time()
         if (m-1-i >= 0):
-            qs = [q_old + a*2**(m-1-i) for q_old,a in zip(qs, alpha)]
+            qs = qs + alpha*2**(m-1-i)
         else:
             # last iteration
-            qs = [q_old + int((a-1)/2) for q_old,a in zip(qs, alpha)]
-    #    print(alpha[:100])
-    #    print(qs[:100])
+            qs = qs + (alpha-1)/2
+            #qs = [q_old + int((a-1)/2) for q_old,a in zip(qs, alpha)]
+        t1=time.time()
+        print("qs executed in: ", t1-t0)
+        print("Iteration", i, "executed in", t1-t0)
         i+=1
-        #print(qs)
-    #print(qs)
 
     # qs is now the index of the distance of the closest distance along the fault to each point in the cluster dataframe.  # first get the distance that each one represents
-    fault_dists = pd.Series([distances[q] for q in qs])
+    fault_dists = pd.Series([distances[int(q)] for q in qs])
     # append the distances to the dataframe
     df['fault_dist'] = fault_dists.values
     print(df)
@@ -158,18 +173,17 @@ def plot_cluster_stats_along_fault(csv):
     plt.xlabel('Distance along fault (km)')
     plt.ylabel('Number of river pixels')
     plt.legend(title='Cluster ID', loc='upper right')
-    plt.show()
-
-
-
-
+    #plt.show()
+    plt.savefig(output_fname, dpi=300)
 
 DataDirectory='/home/clubb/OneDrive/san_andreas/NorthernSAF/'
+#subdirs = [x[0] for x in os.walk(DataDirectory)]
 baseline_shapefile='SanAndreasFault.shp'
 output_shapefile='SanAndreasPoints.shp'
-#points, distances = get_points_along_line(n=1024)
-#coeffs = get_orthogonal_coefficients(points)
+points, distances = get_points_along_line(n=1024)
+coeffs = get_orthogonal_coefficients(points)
 cluster_csv = DataDirectory+'tile_70/threshold_2/tile_70_profiles_clustered_SO3.csv'
 output_csv=DataDirectory+'tile_70/threshold_2/tile_70_profiles_fault_dist.csv'
-#bisection_method(points, coeffs, distances, cluster_csv, output_csv)
+bisection_method(points, coeffs, distances, cluster_csv, output_csv)
+output_fname=DataDirectory+'tile_70/threshold_2/tile_70_profiles_fault_dist.png'
 plot_cluster_stats_along_fault(output_csv)
