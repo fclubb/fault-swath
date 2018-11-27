@@ -5,6 +5,7 @@
 import numpy as np
 import pandas as pd
 import math
+import matplotlib.pyplot as plt
 # shapefiles
 from fiona import collection
 from shapely.geometry import shape, LineString, mapping
@@ -114,7 +115,7 @@ def bisection_method(points, coeffs, distances, cluster_csv, output_csv):
     qs = np.full(len(cluster_x), 2**(int(m-1)))
     #print(qs)
     #print(coeffs)
-    while (int(m)-1-i >= 0):
+    while (int(m)-1-i >= -1):
         cs = [coeffs[q] for q in qs]
         # calculate alpha: ax+bx+c=alpha for each river point (x and y from river point,
         # a, b, and c from the line)
@@ -124,9 +125,9 @@ def bisection_method(points, coeffs, distances, cluster_csv, output_csv):
         # Take further baseline point depending on whether alpha is positive or negative
         if (m-1-i >= 0):
             qs = [q_old + a*2**(m-1-i) for q_old,a in zip(qs, alpha)]
-        # else:
-        #     # last iteration
-        #     qs = [q_old + a for q_old,a in zip(qs, alpha)]
+        else:
+            # last iteration
+            qs = [q_old + int((a-1)/2) for q_old,a in zip(qs, alpha)]
     #    print(alpha[:100])
     #    print(qs[:100])
         i+=1
@@ -149,8 +150,15 @@ def plot_cluster_stats_along_fault(csv):
     df = pd.read_csv(csv)
 
     # now group by the fault dist and plot percentages
-    print(df.groupby(['fault_dist', 'cluster_id'])['id'].count())
-
+    gr = df.groupby(['fault_dist', 'cluster_id'])[['id']].count()
+    print(gr)
+    plot_df = gr.unstack('cluster_id').loc[:, 'id']
+    print(plot_df)
+    plot_df.plot()
+    plt.xlabel('Distance along fault (km)')
+    plt.ylabel('Number of river pixels')
+    plt.legend(title='Cluster ID', loc='upper right')
+    plt.show()
 
 
 
