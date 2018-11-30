@@ -62,6 +62,22 @@ def get_points_along_line(n=1024):
 
     return points, distances
 
+def get_distance_along_fault_from_points(df):
+    """
+    Find the distance along the fault shapefile from a DataFrame
+    with lat/long coordinates
+    """
+    # read in the baseline shapefile
+    c = collection(DataDirectory+baseline_shapefile, 'r')
+    rec = c.next()
+    line = LineString(shape(rec['geometry']))
+    line_rvs = LineString(list(line.coords)[::-1])
+    # get the coordinate system from the input shapefile
+    crs = c.crs
+    print(line_rvs)
+
+
+
 def get_channel_slope_around_each_point(pts, cluster_csv, radius=1000):
     """
     Read in a shapefile of points and get a circle with a defined radius (in metres) around each point,
@@ -220,7 +236,16 @@ def plot_channel_slope_along_fault(csv):
     plt.show()
     #plt.savefig(output_fname, dpi=300)
 
-DataDirectory='/home/clubb/OneDrive/san_andreas/NorthernSAF/'
+def plot_slip_rates_along_fault(slip_rate_csv):
+    """
+    Read in a csv file with slip rates along the fault and plot
+    compared to distance along the shapefile
+    """
+    df = pd.read_csv(slip_rate_csv)
+
+    #
+
+DataDirectory='/home/clubb/pCloudDrive/Data_for_papers/san_andreas/NorthernSAF/'
 #subdirs = [x[0] for x in os.walk(DataDirectory)]
 baseline_shapefile='SanAndreasFault.shp'
 output_shapefile='SanAndreasPoints.shp'
@@ -234,4 +259,8 @@ output_fname=DataDirectory+'tile_70/threshold_2/tile_70_profiles_fault_dist.png'
 #plot_channel_slope_along_fault(output_csv)
 
 # circles
-get_channel_slope_around_each_point(output_shapefile, cluster_csv, radius=1)
+#get_channel_slope_around_each_point(output_shapefile, cluster_csv, radius=1)
+
+# slip rates
+slip_rate_csv='/home/clubb/pCloudDrive/Data_for_papers/san_andreas/Slip_rates/Tong_2013_InSAR.csv'
+get_distance_along_fault_from_points(slip_rate_csv)
