@@ -3,8 +3,8 @@
 # FJC 26/11/18
 
 # set backend to run on server
-import matplotlib
-matplotlib.use('Agg')
+#import matplotlib
+#matplotlib.use('Agg')
 
 import numpy as np
 import pandas as pd
@@ -17,6 +17,7 @@ from fiona import collection
 from shapely.geometry import shape, LineString, mapping
 from shapely.geometry import Point as shapelyPoint
 import pyproj as pyproj
+from geopy.distance import vincenty
 
 
 def get_points_along_line(n=1024):
@@ -39,17 +40,26 @@ def get_points_along_line(n=1024):
     crs = c.crs
 
     total_distance = line_rvs.length
-    temp_dist=0
     # get the spacing based on the total distance and the number of points
     dist = (total_distance/n)
-    print("The total distance is", total_distance*1000, ": returning ", n, "points at a spacing of ", dist*1000)
+    print("The total distance is", total_distance, ": returning ", n, "points at a spacing of ", dist)
+    temp_dist=0
+    metric_dist=0
     # have a point at the start of the line
     for j in range(n+1):
         point = line_rvs.interpolate(temp_dist)
-        #print(list(point.coords))
-        points.append(shapelyPoint(point))
-        distances.append(temp_dist*1000)
+        if j == 0:
+            temp_metric = 0
+        else:
+            #print(list(point.coords))
+            # find the distance between this point and the previous point in metres (vicenty)
+            temp_metric = vincenty((point.y, point.x), (points[-1].y, points[-1].x)).km
+        metric_dist+=temp_metric
+        print(metric_dist)
         temp_dist+=dist
+        points.append(shapelyPoint(point))
+        distances.append(metric_dist)
+
 
     #output schema
     schema={'geometry': 'Point', 'properties': {'distance': 'float', 'id': 'int'} }
@@ -62,11 +72,14 @@ def get_points_along_line(n=1024):
 
     return points, distances
 
-def get_distance_along_fault_from_points(df):
+def get_distance_along_fault_from_points(pts_csv):
     """
     Find the distance along the fault shapefile from a DataFrame
     with lat/long coordinates
     """
+    df = pd.read_csv(pts_csv)
+    df = df.apply(pd.to_numeric, errors='coerce')
+    print(df)
     # read in the baseline shapefile
     c = collection(DataDirectory+baseline_shapefile, 'r')
     rec = c.next()
@@ -74,9 +87,21 @@ def get_distance_along_fault_from_points(df):
     line_rvs = LineString(list(line.coords)[::-1])
     # get the coordinate system from the input shapefile
     crs = c.crs
-    print(line_rvs)
 
+    # for each point find the length along the line of the nearest point
+    lon = df.longitude.values
+    lat = df.latitude.values
+    distances = []
 
+    for i in range(len(lat)):
+        print(lon[i], lat[i])
+        point = shapelyPoint(lon[i], lat[i])
+        dist = line_rvs.project(point)
+        np = line.interpolate(line.project(p))
+        distances.append(dist)
+
+    plt.scatter(distances, df['slip_rate'])
+    plt.show()
 
 def get_channel_slope_around_each_point(pts, cluster_csv, radius=1000):
     """
@@ -261,19 +286,19 @@ DataDirectory='/home/clubb/pCloudDrive/Data_for_papers/san_andreas/NorthernSAF/'
 #subdirs = [x[0] for x in os.walk(DataDirectory)]
 baseline_shapefile='SanAndreasFault.shp'
 output_shapefile='SanAndreasPoints.shp'
-#points, distances = get_points_along_line(n=1024)
+points, distances = get_points_along_line(n=1024)
 #coeffs = get_orthogonal_coefficients(points)
 cluster_csv = DataDirectory+'SAF_only/threshold_0/SAF_only_profiles_clustered_SO3.csv'
 output_csv=DataDirectory+'SAF_only/threshold_0/SAF_only_profiles_fault_dist.csv'
 #bisection_method(points, coeffs, distances, cluster_csv, output_csv)
 output_fname=DataDirectory+'SAF_only/threshold_0/SAF_only_profiles_fault_dist_clusters.png'
-plot_cluster_stats_along_fault(output_csv)
+#plot_cluster_stats_along_fault(output_csv)
 output_fname=DataDirectory+'SAF_only/threshold_0/SAF_only_profiles_fault_dist_slopes.png'
-plot_channel_slope_along_fault(output_csv)
+#plot_channel_slope_along_fault(output_csv)
 
 # circles
 #get_channel_slope_around_each_point(output_shapefile, cluster_csv, radius=1)
 
 # slip rates
-slip_rate_csv='/home/clubb/pCloudDrive/Data_for_papers/san_andreas/Slip_rates/Tong_2013_InSAR.csv'
+slip_rate_csv='/home/clubb/pCloudDrive/Data_for_papers/san_andreas/Slip_rates/Tong_2013_InSAR_wtf.csv'
 get_distance_along_fault_from_points(slip_rate_csv)
