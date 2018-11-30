@@ -3,8 +3,8 @@
 # FJC 26/11/18
 
 # set backend to run on server
-#import matplotlib
-#matplotlib.use('Agg')
+import matplotlib
+matplotlib.use('Agg')
 
 import numpy as np
 import pandas as pd
@@ -216,6 +216,12 @@ def plot_cluster_stats_along_fault(csv):
     plt.legend(title='Cluster ID', loc='upper right')
     #plt.show()
     plt.savefig(output_fname, dpi=300)
+    plt.clf()
+
+def q1(x):
+    return x.quantile(0.25)
+def q2(x):
+    return x.quantile(0.75)
 
 def plot_channel_slope_along_fault(csv):
     """
@@ -223,18 +229,24 @@ def plot_channel_slope_along_fault(csv):
     """
 
     df = pd.read_csv(csv)
+    #remove negative channel slopes
+    df = df[df['slope'] > 0]
 
     # now group by the fault dist and plot percentages
-    gr = df.groupby(['fault_dist'])[['slope']].median()
+    f = {'median' : np.median,
+         'std' : np.std,
+         'q1': q1,
+         'q2': q2}
+    gr = df.groupby(['fault_dist'])['slope'].agg(f).reset_index()
     print(gr)
-    #plot_df = gr.unstack('cluster_id').loc[:, 'id']
-    #print(plot_df)
-    gr.plot(marker='o')
+    plt.errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=5, marker='D', mfc='r', mec='k', c='0.5', capsize=2)
+    #gr.plot.scatter(x='fault_dist', y='median')
     plt.xlabel('Distance along fault (km)')
     plt.ylabel('Median channel slope (m/m)')
     #plt.legend(title='Cluster ID', loc='upper right')
-    plt.show()
-    #plt.savefig(output_fname, dpi=300)
+    #plt.show()
+    plt.savefig(output_fname, dpi=300)
+    plt.clf()
 
 def plot_slip_rates_along_fault(slip_rate_csv):
     """
@@ -251,12 +263,13 @@ baseline_shapefile='SanAndreasFault.shp'
 output_shapefile='SanAndreasPoints.shp'
 #points, distances = get_points_along_line(n=1024)
 #coeffs = get_orthogonal_coefficients(points)
-cluster_csv = DataDirectory+'tile_70/threshold_2/tile_70_profiles_clustered_SO3.csv'
-output_csv=DataDirectory+'tile_70/threshold_2/tile_70_profiles_fault_dist.csv'
+cluster_csv = DataDirectory+'SAF_only/threshold_0/SAF_only_profiles_clustered_SO3.csv'
+output_csv=DataDirectory+'SAF_only/threshold_0/SAF_only_profiles_fault_dist.csv'
 #bisection_method(points, coeffs, distances, cluster_csv, output_csv)
-output_fname=DataDirectory+'tile_70/threshold_2/tile_70_profiles_fault_dist.png'
-#plot_cluster_stats_along_fault(output_csv)
-#plot_channel_slope_along_fault(output_csv)
+output_fname=DataDirectory+'SAF_only/threshold_0/SAF_only_profiles_fault_dist_clusters.png'
+plot_cluster_stats_along_fault(output_csv)
+output_fname=DataDirectory+'SAF_only/threshold_0/SAF_only_profiles_fault_dist_slopes.png'
+plot_channel_slope_along_fault(output_csv)
 
 # circles
 #get_channel_slope_around_each_point(output_shapefile, cluster_csv, radius=1)
