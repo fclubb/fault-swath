@@ -3,8 +3,8 @@
 # FJC 26/11/18
 
 # set backend to run on server
-import matplotlib
-matplotlib.use('Agg')
+#import matplotlib
+#matplotlib.use('Agg')
 
 import numpy as np
 import pandas as pd
@@ -16,6 +16,7 @@ import time
 from fiona import collection
 from shapely.geometry import shape, LineString, mapping
 from shapely.geometry import Point as shapelyPoint
+import pyproj as pyproj
 
 
 def get_points_along_line(n=1024):
@@ -61,9 +62,33 @@ def get_points_along_line(n=1024):
 
     return points, distances
 
-# get_channel_slope_around_each_point(pts):
-#     """
-#     Read in a list of shapely points and get a circle with a defined radius around each point
+def get_channel_slope_around_each_point(pts, cluster_csv, radius=1000):
+    """
+    Read in a shapefile of points and get a circle with a defined radius (in metres) around each point,
+    then get the median and interquartile range of the channel slope within each circle
+    Write to shapefile, yo
+    """
+    # read in the shapefile and get a list of the lat and lons
+    lon = []
+    lat = []
+    with collection(DataDirectory+pts, 'r') as layer:
+        for element in layer:
+            lon.append(element['geometry']['coordinates'][0])
+            lat.append(element['geometry']['coordinates'][1])
+
+    df = pd.read_csv(cluster_csv)
+
+    # transform the points to projected coordinate system for tracking
+    wgs84=pyproj.Proj('+init=EPSG:4326')
+    UTM10N=pyproj.Proj('+init=EPSG:32610')
+    xs, ys = pyproj.transform(wgs84, UTM10N, lon, lat)
+
+    # now get a buffer around each point
+    buffers = [shapelyPoint(x, y).buffer(radius) for x, y in zip(xs, ys)]
+
+    # now get the river points that are in these buffers
+
+
 
 def get_orthogonal_coefficients(pts):
     """
@@ -176,14 +201,37 @@ def plot_cluster_stats_along_fault(csv):
     #plt.show()
     plt.savefig(output_fname, dpi=300)
 
+def plot_channel_slope_along_fault(csv):
+    """
+    Plot the median channel slope vs. distance along the fault
+    """
+
+    df = pd.read_csv(csv)
+
+    # now group by the fault dist and plot percentages
+    gr = df.groupby(['fault_dist'])[['slope']].median()
+    print(gr)
+    #plot_df = gr.unstack('cluster_id').loc[:, 'id']
+    #print(plot_df)
+    gr.plot(marker='o')
+    plt.xlabel('Distance along fault (km)')
+    plt.ylabel('Median channel slope (m/m)')
+    #plt.legend(title='Cluster ID', loc='upper right')
+    plt.show()
+    #plt.savefig(output_fname, dpi=300)
+
 DataDirectory='/home/clubb/OneDrive/san_andreas/NorthernSAF/'
 #subdirs = [x[0] for x in os.walk(DataDirectory)]
 baseline_shapefile='SanAndreasFault.shp'
 output_shapefile='SanAndreasPoints.shp'
-points, distances = get_points_along_line(n=1024)
-coeffs = get_orthogonal_coefficients(points)
+#points, distances = get_points_along_line(n=1024)
+#coeffs = get_orthogonal_coefficients(points)
 cluster_csv = DataDirectory+'tile_70/threshold_2/tile_70_profiles_clustered_SO3.csv'
 output_csv=DataDirectory+'tile_70/threshold_2/tile_70_profiles_fault_dist.csv'
-bisection_method(points, coeffs, distances, cluster_csv, output_csv)
+#bisection_method(points, coeffs, distances, cluster_csv, output_csv)
 output_fname=DataDirectory+'tile_70/threshold_2/tile_70_profiles_fault_dist.png'
-plot_cluster_stats_along_fault(output_csv)
+#plot_cluster_stats_along_fault(output_csv)
+#plot_channel_slope_along_fault(output_csv)
+
+# circles
+get_channel_slope_around_each_point(output_shapefile, cluster_csv, radius=1)
