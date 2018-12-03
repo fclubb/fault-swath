@@ -19,6 +19,30 @@ from shapely.geometry import Point as shapelyPoint
 import pyproj as pyproj
 from geopy.distance import vincenty
 
+def find_nearest_index(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return idx
+
+def find_vicenty_distance_along_line(line):
+    """
+    find the vicenty distance of the coords along a line
+    This is a bit slow because we need to calculate the distance for
+    each point on the line
+    """
+    coords = line.coords
+    start_point = coords[0]
+    temp_dist=0
+    distances=[]
+    for i in range (len(coords)):
+        #print(coords[i][0])
+        if i == 0:
+            dist = vincenty((coords[i][1], coords[i][0]), (start_point[1], start_point[0])).km
+        else:
+            dist = vincenty((coords[i][1], coords[i][0]), (coords[i-1][1], coords[i-1][0])).km
+        temp_dist+=dist
+        distances.append(temp_dist)
+    return distances
 
 def get_points_along_line(n=1024):
     """
@@ -87,6 +111,11 @@ def get_distance_along_fault_from_points(pts_csv):
     line_rvs = LineString(list(line.coords)[::-1])
     # get the coordinate system from the input shapefile
     crs = c.crs
+    # get the vincenty distances along the line
+    line_dist = find_vicenty_distance_along_line(line_rvs)
+    line_lat = [l[1] for l in line_rvs.coords]
+    #print(line_lat)
+    line_lon = [l[0] for l in line_rvs.coords]
 
     # for each point find the length along the line of the nearest point
     lon = df.longitude.values
@@ -94,11 +123,30 @@ def get_distance_along_fault_from_points(pts_csv):
     distances = []
 
     for i in range(len(lat)):
-        print(lon[i], lat[i])
+        #print(lon[i], lat[i])
         point = shapelyPoint(lon[i], lat[i])
         dist = line_rvs.project(point)
-        np = line.interpolate(line.project(p))
+        np = line.interpolate(line.project(point))
+        # getting the distance - difficult because we need vicenty distance
+        # find the nearest point in the line distances (closest latitude)
+        idx = find_nearest_index(line_lat, lat[i])
+        #print(line_lat)
+        #print(lat[i], line_lat[idx])
+        dist = vincenty((line_lat[idx], line_lon[idx]), (np.y, np.x)).km
+        print(dist)
+        if line_lat[idx] < lat[i]:
+            # line point is at a lower latitude than the point - need to find the distance between them
+            # and minus that from the line distance
+            dist = line_dist[idx] - dist
+        else:
+            dist = line_dist[idx] + dist
+            print(dist)
+
         distances.append(dist)
+
+    # save the distances to csv
+    df['fault_dist'] = distances
+    df.to_csv(output_sr_csv)
 
     plt.scatter(distances, df['slip_rate'])
     plt.show()
@@ -286,7 +334,7 @@ DataDirectory='/home/clubb/pCloudDrive/Data_for_papers/san_andreas/NorthernSAF/'
 #subdirs = [x[0] for x in os.walk(DataDirectory)]
 baseline_shapefile='SanAndreasFault.shp'
 output_shapefile='SanAndreasPoints.shp'
-points, distances = get_points_along_line(n=1024)
+#points, distances = get_points_along_line(n=1024)
 #coeffs = get_orthogonal_coefficients(points)
 cluster_csv = DataDirectory+'SAF_only/threshold_0/SAF_only_profiles_clustered_SO3.csv'
 output_csv=DataDirectory+'SAF_only/threshold_0/SAF_only_profiles_fault_dist.csv'
@@ -301,4 +349,6 @@ output_fname=DataDirectory+'SAF_only/threshold_0/SAF_only_profiles_fault_dist_sl
 
 # slip rates
 slip_rate_csv='/home/clubb/pCloudDrive/Data_for_papers/san_andreas/Slip_rates/Tong_2013_InSAR_wtf.csv'
+output_sr_csv='/home/clubb/pCloudDrive/Data_for_papers/san_andreas/Slip_rates/Tong_2013_InSAR_fault_dist.csv'
 get_distance_along_fault_from_points(slip_rate_csv)
+#find_vicenty_distance_along_line(baseline_shapefile)
