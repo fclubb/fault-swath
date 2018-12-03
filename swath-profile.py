@@ -148,8 +148,8 @@ def get_distance_along_fault_from_points(pts_csv):
     df['fault_dist'] = distances
     df.to_csv(output_sr_csv)
 
-    plt.scatter(distances, df['slip_rate'])
-    plt.show()
+    #plt.scatter(distances, df['slip_rate'])
+    #plt.show()
 
 def get_channel_slope_around_each_point(pts, cluster_csv, radius=1000):
     """
@@ -321,14 +321,45 @@ def plot_channel_slope_along_fault(csv):
     plt.savefig(output_fname, dpi=300)
     plt.clf()
 
-def plot_slip_rates_along_fault(slip_rate_csv):
+def plot_slip_rates_along_fault(river_csv, slip_rate_csv):
     """
     Read in a csv file with slip rates along the fault and plot
     compared to distance along the shapefile
     """
-    df = pd.read_csv(slip_rate_csv)
+    # csv with the river profiles
+    river_df = pd.read_csv(river_csv)
+    #remove negative channel slopes
+    river_df = river_df[river_df['slope'] > 0]
+    # csv with the slip rates
+    sr_df = pd.read_csv(slip_rate_csv)
 
-    #
+    # set up a figure
+    fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(5,10))
+
+    # plot the channel slope data
+    # now group by the fault dist and plot percentages
+    f = {'median' : np.median,
+         'std' : np.std,
+         'q1': q1,
+         'q2': q2}
+    gr = df.groupby(['fault_dist'])['slope'].agg(f).reset_index()
+    print(gr)
+    ax[0].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=5, marker='D', mfc='r', mec='k', c='0.5', capsize=2)
+    #gr.plot.scatter(x='fault_dist', y='median')
+    ax[0].set_ylabel('Median channel slope (m/m)')
+    #plt.legend(title='Cluster ID', loc='upper right')
+    #plt.show()
+    gr.to_csv(DataDirectory+'SAF_only/SAF_only_channel_slope_fault_dist.csv')
+
+    # plot the slip rate data
+    ax[1].scatter(sr_df['fault_dist'], sr_df['slip_rate'])
+    ax[1].set_xlabel('Distance along fault (km)')
+    ax[1].set_ylabel('Right lateral slip rate(mm/yr)')
+
+    plt.savefig(output_fname, dpi=300)
+    plt.clf()
+
+
 
 DataDirectory='/home/clubb/pCloudDrive/Data_for_papers/san_andreas/NorthernSAF/'
 #subdirs = [x[0] for x in os.walk(DataDirectory)]
@@ -351,4 +382,4 @@ output_fname=DataDirectory+'SAF_only/threshold_0/SAF_only_profiles_fault_dist_sl
 slip_rate_csv='/home/clubb/pCloudDrive/Data_for_papers/san_andreas/Slip_rates/Tong_2013_InSAR_wtf.csv'
 output_sr_csv='/home/clubb/pCloudDrive/Data_for_papers/san_andreas/Slip_rates/Tong_2013_InSAR_fault_dist.csv'
 get_distance_along_fault_from_points(slip_rate_csv)
-#find_vicenty_distance_along_line(baseline_shapefile)
+plot_slip_rates_along_fault(output_csv, slip_rate_csv)
