@@ -3,8 +3,8 @@
 # FJC 26/11/18
 
 # set backend to run on server
-#import matplotlib
-#matplotlib.use('Agg')
+import matplotlib
+matplotlib.use('Agg')
 
 import numpy as np
 import pandas as pd
@@ -12,6 +12,9 @@ import math
 import matplotlib.pyplot as plt
 import os
 import time
+from matplotlib import rcParams
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 # shapefiles
 from fiona import collection
 from shapely.geometry import shape, LineString, mapping
@@ -19,10 +22,29 @@ from shapely.geometry import Point as shapelyPoint
 import pyproj as pyproj
 from geopy.distance import vincenty
 
+# Set up fonts for plots
+label_size = 12
+#rcParams['font.family'] = 'sans-serif'
+#rcParams['font.sans-serif'] = ['arial']
+rcParams['font.size'] = label_size
+plt.rc('axes', titlesize=10)     # fontsize of the axes title
+
 def find_nearest_index(array, value):
     array = np.asarray(array)
     idx = (np.abs(array - value)).argmin()
     return idx
+
+def discrete_cmap(N, base_cmap=None):
+    """Create an N-bin discrete colormap from the specified input map"""
+
+    # Note that if base_cmap is a string or None, you can simply do
+    #    return plt.cm.get_cmap(base_cmap, N)
+    # The following works for string, None, or a colormap instance:
+
+    base = plt.cm.get_cmap(base_cmap)
+    color_list = base(np.linspace(0, 1, N))
+    cmap_name = base.name + str(N)
+    return base.from_list(cmap_name, color_list, N)
 
 def find_vicenty_distance_along_line(line):
     """
@@ -321,7 +343,7 @@ def plot_channel_slope_along_fault(csv):
     plt.savefig(output_fname, dpi=300)
     plt.clf()
 
-def plot_slip_rates_along_fault(river_csv, slip_rate_csv):
+def plot_slip_rates_along_fault_slopes(river_csv, slip_rate_csv):
     """
     Read in a csv file with slip rates along the fault and plot
     compared to distance along the shapefile
@@ -334,7 +356,7 @@ def plot_slip_rates_along_fault(river_csv, slip_rate_csv):
     sr_df = pd.read_csv(slip_rate_csv)
 
     # set up a figure
-    fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(5,10))
+    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10,10), sharex=True)
 
     # plot the channel slope data
     # now group by the fault dist and plot percentages
@@ -342,44 +364,191 @@ def plot_slip_rates_along_fault(river_csv, slip_rate_csv):
          'std' : np.std,
          'q1': q1,
          'q2': q2}
-    gr = df.groupby(['fault_dist'])['slope'].agg(f).reset_index()
+    gr = river_df.groupby(['fault_dist'])['slope'].agg(f).reset_index()
     print(gr)
+    ax[0].grid(color='0.8', linestyle='--', which='both')
     ax[0].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=5, marker='D', mfc='r', mec='k', c='0.5', capsize=2)
     #gr.plot.scatter(x='fault_dist', y='median')
     ax[0].set_ylabel('Median channel slope (m/m)')
+    #ax[0].set_xlim(100,580)
     #plt.legend(title='Cluster ID', loc='upper right')
     #plt.show()
-    gr.to_csv(DataDirectory+'SAF_only/SAF_only_channel_slope_fault_dist.csv')
+    gr.to_csv(DataDirectory+threshold_lvl+fname_prefix+'_channel_slope_fault_dist.csv')
 
     # plot the slip rate data
-    ax[1].scatter(sr_df['fault_dist'], sr_df['slip_rate'])
+    ax[1].grid(color='0.8', linestyle='--', which='both')
+    ax[1].errorbar(x=sr_df['fault_dist'], y=sr_df['slip_rate'], yerr=sr_df['slip_rate_u'], fmt='o', ms=5, marker='D', mfc='b', mec='k', c= '0.5', capsize=2)
     ax[1].set_xlabel('Distance along fault (km)')
     ax[1].set_ylabel('Right lateral slip rate(mm/yr)')
+   # ax[1].set_xlim(100,580)
 
-    plt.savefig(output_fname, dpi=300)
+    plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes.png', dpi=300)
+    plt.clf()
+
+def plot_slip_rates_along_fault_clusters(river_csv, slip_rate_csv):
+    """
+    Read in a csv file with slip rates along the fault and plot
+    compared to distance along the shapefile
+    """
+    # csv with the river profiles
+    river_df = pd.read_csv(river_csv)
+    #remove negative channel slopes
+    #river_df = river_df[river_df['slope'] > 0]
+    # csv with the slip rates
+    sr_df = pd.read_csv(slip_rate_csv)
+
+    # set up a figure
+    cluster_ids = river_df.cluster_id.unique()
+    fig, ax = plt.subplots(nrows=len(cluster_ids)+1, ncols=1, figsize=(6,10), sharex=True)
+    ax = ax.ravel()
+
+    # make a big subplot to allow sharing of axis labels
+    fig.add_subplot(111, frameon=False)
+    # hide tick and tick label of the big axes
+    plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+
+    color_dict = dict(zip(river_df.cluster_id.unique(), river_df.colour.unique()))
+    print(color_dict)
+    sorted_colors = [color_dict[key] for key in sorted(color_dict)]
+    sorted_colors.append('k')
+    print(sorted_colors)
+
+
+    # now group by the fault dist and plot percentages
+    gr = river_df.groupby(['fault_dist', 'cluster_id'])[['id']].count()
+    #print(gr)
+    # percentages groupby
+    gr_pc = gr.groupby(level=0).apply(lambda x: 100 * x / float(x.sum()))
+    plot_df = gr_pc.unstack('cluster_id').loc[:, 'id']
+    #plot_df = pd.concat([plot_df, sr_df], ignore_index=True)
+ 
+    print(plot_df.keys)
+    # get some data for plotting the clusters
+    col_list = sorted(list(river_df.cluster_id.unique()))
+    titles = ['Cluster ' + str(col_list[i]) for i in range(len(cluster_ids))]
+
+    # plot the clusters along the fault
+    for i in range(len(ax)-1):
+        this_col = float(col_list[i])
+        ax[i].plot(plot_df[this_col], color=sorted_colors[i]) 
+        ax[i].grid(color='0.8', linestyle='--', which='both')
+        if i == 2:
+            ax[i].set_ylabel('% channel pixels')
+        ax[i].set_title(titles[i], fontsize=10)
+        ax[i].set_ylim(0,100)
+
+    # now plot the slip rate data
+    ax[-1].grid(color='0.8', linestyle='--', which='both')
+    ax[-1].errorbar(sr_df['fault_dist'], sr_df['slip_rate'], yerr=sr_df['slip_rate_u'], fmt='o', mec='k', mfc='w', ms=5, ecolor='k', capsize=2)
+    ax[-1].set_ylabel('Slip rate (mm/yr)')
+
+   
+    # axis formatting
+    plt.xlabel('Distance along fault (km)')
+    plt.subplots_adjust(hspace=0.5)
+    #plt.show()
+    #plt.xlim(100,1100)
+
+    #save the data
+    plot_df.to_csv(DataDirectory+threshold_lvl+fname_prefix+'_fault_dist_clusters.csv')
+    plt.savefig(DataDirectory+threshold_lvl+fname_prefix+'_fault_dist_clusters.png', dpi=300)
     plt.clf()
 
 
+def plot_dominant_cluster_along_fault_with_slip_rate(river_csv, slip_rate_csv):
+    """
+    Read in a csv file with slip rates along the fault and plot
+    compared to distance along the shapefile
+    """
+    # csv with the river profiles
+    river_df = pd.read_csv(river_csv)
+    #remove negative channel slopes
+    #river_df = river_df[river_df['slope'] > 0]
+    # csv with the slip rates
+    sr_df = pd.read_csv(slip_rate_csv)
 
-DataDirectory='/home/clubb/pCloudDrive/Data_for_papers/san_andreas/NorthernSAF/'
+    # set up a figure
+    cluster_ids = river_df.cluster_id.unique()
+    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(6,6), sharex=True)
+    ax = ax.ravel()
+
+    # make a big subplot to allow sharing of axis labels
+    fig.add_subplot(111, frameon=False)
+    # hide tick and tick label of the big axes
+    plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+
+
+    # now group by the fault dist and plot percentages
+    gr = river_df.groupby(['fault_dist', 'cluster_id'])[['id']].count()
+#    # percentages groupby
+    gr_pc = gr.groupby(level=0).apply(lambda x: 100 * x / float(x.sum()))
+    # max percentage in each group
+   # print(gr_pc)
+    plot_df = gr_pc.unstack('cluster_id').loc[:, 'id']
+    print(plot_df)
+    plot_df['Max'] = plot_df.idxmax(axis=1)
+    print(plot_df)
+
+    norm=mcolors.Normalize(vmin=1,vmax=8)
+    ax[0].grid(color='0.8', linestyle='--', which='both')
+    ax[0].scatter(plot_df.index, plot_df['Max'], c=plot_df['Max'], cmap=cm.Set1, norm=norm, s=10, marker='s',zorder=10)
+    ax[0].set_ylabel('Dominant cluster ID')
+#    #plot_df = pd.concat([plot_df, sr_df], ignore_index=True)
+# 
+#    print(plot_df.keys)
+#    # get some data for plotting the clusters
+#    col_list = sorted(list(river_df.cluster_id.unique()))
+#    titles = ['Cluster ' + str(col_list[i]) for i in range(len(cluster_ids))]
+#
+#    # plot the clusters along the fault
+#    for i in range(len(ax)-1):
+#        this_col = float(col_list[i])
+#        ax[i].plot(plot_df[this_col], color=sorted_colors[i]) 
+#        ax[i].grid(color='0.8', linestyle='--', which='both')
+#        if i == 2:
+#            ax[i].set_ylabel('% channel pixels')
+#        ax[i].set_title(titles[i], fontsize=10)
+#        ax[i].set_ylim(0,100)
+#
+    # now plot the slip rate data
+    ax[-1].grid(color='0.8', linestyle='--', which='both')
+    ax[-1].errorbar(sr_df['fault_dist'], sr_df['slip_rate'], yerr=sr_df['slip_rate_u'], fmt='o', mec='k', mfc='w', ms=5, ecolor='k', capsize=2)
+    ax[-1].set_ylabel('Slip rate (mm/yr)')
+
+   
+    # axis formatting
+    plt.xlabel('Distance along fault (km)')
+#    plt.subplots_adjust(hspace=0.5)
+#    #plt.show()
+#    #plt.xlim(100,1100)
+
+    #save the data
+    plot_df.to_csv(DataDirectory+threshold_lvl+fname_prefix+'_fault_dist_main_cluster.csv')
+    plt.savefig(DataDirectory+threshold_lvl+fname_prefix+'_fault_dist_main_cluster.png', dpi=300)
+    plt.clf()
+
+
+DataDirectory='/raid/fclubb/san_andreas/SAF_combined/SAF_only/'
+threshold_lvl='threshold_2/'
+fname_prefix='SAF_only'
 #subdirs = [x[0] for x in os.walk(DataDirectory)]
 baseline_shapefile='SanAndreasFault.shp'
 output_shapefile='SanAndreasPoints.shp'
-#points, distances = get_points_along_line(n=1024)
+#points, distances = get_points_along_line(n=512)
 #coeffs = get_orthogonal_coefficients(points)
-cluster_csv = DataDirectory+'SAF_only/threshold_0/SAF_only_profiles_clustered_SO3.csv'
-output_csv=DataDirectory+'SAF_only/threshold_0/SAF_only_profiles_fault_dist.csv'
+cluster_csv = DataDirectory+threshold_lvl+fname_prefix+'_profiles_clustered_SO3.csv'
+output_csv=DataDirectory+threshold_lvl+fname_prefix+'_profiles_fault_dist.csv'
 #bisection_method(points, coeffs, distances, cluster_csv, output_csv)
-output_fname=DataDirectory+'SAF_only/threshold_0/SAF_only_profiles_fault_dist_clusters.png'
 #plot_cluster_stats_along_fault(output_csv)
-output_fname=DataDirectory+'SAF_only/threshold_0/SAF_only_profiles_fault_dist_slopes.png'
 #plot_channel_slope_along_fault(output_csv)
 
 # circles
 #get_channel_slope_around_each_point(output_shapefile, cluster_csv, radius=1)
 
 # slip rates
-slip_rate_csv='/home/clubb/pCloudDrive/Data_for_papers/san_andreas/Slip_rates/Tong_2013_InSAR_wtf.csv'
-output_sr_csv='/home/clubb/pCloudDrive/Data_for_papers/san_andreas/Slip_rates/Tong_2013_InSAR_fault_dist.csv'
-get_distance_along_fault_from_points(slip_rate_csv)
-plot_slip_rates_along_fault(output_csv, slip_rate_csv)
+slip_rate_csv='/raid/fclubb/san_andreas/Slip_rates/Tong_2013_InSAR_wtf.csv'
+output_sr_csv='/raid/fclubb/san_andreas/Slip_rates/Tong_2013_InSAR_fault_dist.csv'
+#get_distance_along_fault_from_points(slip_rate_csv)
+#plot_slip_rates_along_fault_slopes(output_csv, output_sr_csv)
+#plot_slip_rates_along_fault_clusters(output_csv, output_sr_csv)
+plot_dominant_cluster_along_fault_with_slip_rate(output_csv, output_sr_csv)
