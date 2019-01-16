@@ -118,13 +118,13 @@ def get_points_along_line(n=1024):
 
     return points, distances
 
-def get_distance_along_fault_from_points(pts_csv):
+def get_distance_along_fault_from_points(pts_csv, output_pts_csv):
     """
     Find the distance along the fault shapefile from a DataFrame
     with lat/long coordinates
     """
     df = pd.read_csv(pts_csv)
-    df = df.apply(pd.to_numeric, errors='coerce')
+    #df = df.apply(pd.to_numeric, errors='coerce')
     print(df)
     # read in the baseline shapefile
     c = collection(DataDirectory+baseline_shapefile, 'r')
@@ -168,7 +168,7 @@ def get_distance_along_fault_from_points(pts_csv):
 
     # save the distances to csv
     df['fault_dist'] = distances
-    df.to_csv(output_uplift_csv)
+    df.to_csv(output_pts_csv, index=False)
 
     #plt.scatter(distances, df['slip_rate'])
     #plt.show()
@@ -348,6 +348,7 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv):
     Read in a csv file with slip rates along the fault and plot
     compared to distance along the shapefile
     """
+
     # csv with the river profiles
     river_df = pd.read_csv(river_csv)
     #remove negative channel slopes
@@ -367,7 +368,13 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv):
     gr = river_df.groupby(['fault_dist'])['slope'].agg(f).reset_index()
     print(gr)
     ax[0].grid(color='0.8', linestyle='--', which='both')
-    ax[0].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=5, marker='D', mfc='r', mec='k', c='0.5', capsize=2)
+    ax[0].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.3', mec='0.3', c='0.4', capsize=2, alpha=0.3)
+
+    # rolling mean of channel slopes
+    sorted_df = gr.sort_values(by='fault_dist')
+    sorted_df['slope_rollmean'] = sorted_df['median'].rolling(10).median()
+    ax[0].plot(sorted_df['fault_dist'], sorted_df['slope_rollmean'], c='r', zorder=100, lw=3, ls='--')
+    
     #gr.plot.scatter(x='fault_dist', y='median')
     ax[0].set_ylabel('Median channel slope (m/m)')
     #ax[0].set_xlim(100,580)
@@ -375,13 +382,37 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv):
     #plt.show()
     gr.to_csv(DataDirectory+threshold_lvl+fname_prefix+'_channel_slope_fault_dist.csv')
 
-    # plot the slip rate data
+    # placenames
+    labels_df = pd.read_csv(labels_csv)
+    labels = labels_df['Label']
+    labels_dist = labels_df['fault_dist']
+    for i in range(0, len(labels)):
+        ax[0].annotate(labels[i], xy=(labels_dist[i],0.72), xytext=(labels_dist[i], 0.8), ha='center', fontsize=10, arrowprops=dict(facecolor='k', arrowstyle="->"))
+
+    # plot the uplift rate data
     ax[1].grid(color='0.8', linestyle='--', which='both')
-    ax[1].scatter(x=sr_df['fault_dist'], y=sr_df['RU(mm/yr)'], s=5, marker='D', c= '0.5')
+    ax[1].scatter(x=sr_df['fault_dist'], y=sr_df['RU(mm/yr)'], s=20, marker='D', c= '0.4', edgecolors='k', zorder=10)
+
+    # rolling maxima of uplift rate
+    sorted_df = sr_df.sort_values(by=['fault_dist']) 
+    sorted_df['U_rollmax'] = sorted_df['RU(mm/yr)'].rolling(5).max()
+    roll_max = sorted_df.rolling(10)
+    #print(roll_max)
+    #ax[1].plot(sorted_df['fault_dist'], sorted_df['U_rollmax'], 'k--', zorder=8)
+    ax[1].fill_between(sorted_df['fault_dist'],sorted_df['U_rollmax'], zorder=5, color='0.5', edgecolor='0.5', alpha=0.7)
+
+    # trying a convex hull
+    #points = np.column_stack((sorted_df['fault_dist'], sorted_df['RU(mm/yr)']))
+    #tri = Delaunay(points)
+    #boundary = (points[tri.convex_hull]).flatten()
+    #bx = boundary[0:-2:2]
+    #by = boundary[1:-1:2]
+    #ax[1].plot(bx, by, 'k--')
+     
     ax[1].set_xlabel('Distance along fault (km)')
-    ax[1].set_ylabel('Uplift rate (mm/yr)')
+    ax[1].set_ylabel('Rock uplift rate (mm/yr)')
     ax[1].set_yscale('log')
-    ax[1].set_ylim(10**-2,10**1)
+    ax[1].set_ylim(10**-1.6,10**1)
 
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes.png', dpi=300)
     plt.clf()
@@ -550,7 +581,12 @@ output_csv=DataDirectory+threshold_lvl+fname_prefix+'_profiles_fault_dist.csv'
 # uplift rates
 uplift_rate_csv='/raid/fclubb/san_andreas/Uplift_rates/Spotila_2007.csv'
 output_uplift_csv='/raid/fclubb/san_andreas/Uplift_rates/Spotila_2007_dist.csv'
-get_distance_along_fault_from_points(uplift_rate_csv)
-plot_uplift_rates_along_fault_slopes(output_csv, uplift_rate_csv)
+#get_distance_along_fault_from_points(uplift_rate_csv, output_uplift_csv)
+
+# labels
+labels_csv='/raid/fclubb/san_andreas/Uplift_rates/placenames.csv'
+get_distance_along_fault_from_points(labels_csv, labels_csv)
+
+plot_uplift_rates_along_fault_slopes(output_csv, output_uplift_csv)
 #plot_uplift_rates_along_fault_clusters(output_csv, output_sr_csv)
-plot_dominant_cluster_along_fault_with_uplift_rate(output_csv, uplift_rate_csv)
+#plot_dominant_cluster_along_fault_with_uplift_rate(output_csv, output_uplift_csv)
