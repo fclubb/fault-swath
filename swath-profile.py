@@ -168,7 +168,7 @@ def get_distance_along_fault_from_points(pts_csv):
 
     # save the distances to csv
     df['fault_dist'] = distances
-    df.to_csv(output_sr_csv)
+    df.to_csv(output_uplift_csv)
 
     #plt.scatter(distances, df['slip_rate'])
     #plt.show()
@@ -422,7 +422,7 @@ def plot_uplift_rates_along_fault_clusters(river_csv, uplift_rate_csv):
     gr_pc = gr.groupby(level=0).apply(lambda x: 100 * x / float(x.sum()))
     plot_df = gr_pc.unstack('cluster_id').loc[:, 'id']
     #plot_df = pd.concat([plot_df, sr_df], ignore_index=True)
- 
+
     print(plot_df.keys)
     # get some data for plotting the clusters
     col_list = sorted(list(river_df.cluster_id.unique()))
@@ -431,7 +431,7 @@ def plot_uplift_rates_along_fault_clusters(river_csv, uplift_rate_csv):
     # plot the clusters along the fault
     for i in range(len(ax)-1):
         this_col = float(col_list[i])
-        ax[i].plot(plot_df[this_col], color=sorted_colors[i]) 
+        ax[i].plot(plot_df[this_col], color=sorted_colors[i])
         ax[i].grid(color='0.8', linestyle='--', which='both')
         if i == 2:
             ax[i].set_ylabel('% channel pixels')
@@ -443,7 +443,7 @@ def plot_uplift_rates_along_fault_clusters(river_csv, uplift_rate_csv):
     ax[-1].scatter(sr_df['fault_dist'], sr_df['RU(mm/yr)'], s=5,c='0.5')
     ax[-1].set_ylabel('Uplift rate (mm/yr)')
 
-   
+
     # axis formatting
     plt.xlabel('Distance along fault (km)')
     plt.subplots_adjust(hspace=0.5)
@@ -495,7 +495,7 @@ def plot_dominant_cluster_along_fault_with_uplift_rate(river_csv, uplift_rate_cs
     ax[0].scatter(plot_df.index, plot_df['Max'], c=plot_df['Max'], cmap=cm.Set1, norm=norm, s=10, marker='s',zorder=10)
     ax[0].set_ylabel('Dominant cluster ID')
 #    #plot_df = pd.concat([plot_df, sr_df], ignore_index=True)
-# 
+#
 #    print(plot_df.keys)
 #    # get some data for plotting the clusters
 #    col_list = sorted(list(river_df.cluster_id.unique()))
@@ -504,7 +504,7 @@ def plot_dominant_cluster_along_fault_with_uplift_rate(river_csv, uplift_rate_cs
 #    # plot the clusters along the fault
 #    for i in range(len(ax)-1):
 #        this_col = float(col_list[i])
-#        ax[i].plot(plot_df[this_col], color=sorted_colors[i]) 
+#        ax[i].plot(plot_df[this_col], color=sorted_colors[i])
 #        ax[i].grid(color='0.8', linestyle='--', which='both')
 #        if i == 2:
 #            ax[i].set_ylabel('% channel pixels')
@@ -517,7 +517,7 @@ def plot_dominant_cluster_along_fault_with_uplift_rate(river_csv, uplift_rate_cs
     ax[-1].set_ylabel('Uplift rate (mm/yr)')
     ax[-1].set_yscale('log')
 
-   
+
     # axis formatting
     plt.xlabel('Distance along fault (km)')
 #    plt.subplots_adjust(hspace=0.5)
@@ -548,8 +548,9 @@ output_csv=DataDirectory+threshold_lvl+fname_prefix+'_profiles_fault_dist.csv'
 #get_channel_slope_around_each_point(output_shapefile, cluster_csv, radius=1)
 
 # uplift rates
-uplift_rate_csv='/raid/fclubb/san_andreas/Uplift_rates/Spotila_2007_dist.csv'
-#get_distance_along_fault_from_points(uplift_rate_csv)
+uplift_rate_csv='/raid/fclubb/san_andreas/Uplift_rates/Spotila_2007.csv'
+output_uplift_csv='/raid/fclubb/san_andreas/Uplift_rates/Spotila_2007_dist.csv'
+get_distance_along_fault_from_points(uplift_rate_csv)
 plot_uplift_rates_along_fault_slopes(output_csv, uplift_rate_csv)
 #plot_uplift_rates_along_fault_clusters(output_csv, output_sr_csv)
 plot_dominant_cluster_along_fault_with_uplift_rate(output_csv, uplift_rate_csv)
