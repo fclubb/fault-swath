@@ -343,7 +343,7 @@ def plot_channel_slope_along_fault(csv):
     plt.savefig(output_fname, dpi=300)
     plt.clf()
 
-def plot_slip_rates_along_fault_slopes(river_csv, slip_rate_csv):
+def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv):
     """
     Read in a csv file with slip rates along the fault and plot
     compared to distance along the shapefile
@@ -353,7 +353,7 @@ def plot_slip_rates_along_fault_slopes(river_csv, slip_rate_csv):
     #remove negative channel slopes
     river_df = river_df[river_df['slope'] > 0]
     # csv with the slip rates
-    sr_df = pd.read_csv(slip_rate_csv)
+    sr_df = pd.read_csv(uplift_rate_csv)
 
     # set up a figure
     fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10,10), sharex=True)
@@ -377,15 +377,16 @@ def plot_slip_rates_along_fault_slopes(river_csv, slip_rate_csv):
 
     # plot the slip rate data
     ax[1].grid(color='0.8', linestyle='--', which='both')
-    ax[1].errorbar(x=sr_df['fault_dist'], y=sr_df['slip_rate'], yerr=sr_df['slip_rate_u'], fmt='o', ms=5, marker='D', mfc='b', mec='k', c= '0.5', capsize=2)
+    ax[1].scatter(x=sr_df['fault_dist'], y=sr_df['RU(mm/yr)'], s=5, marker='D', c= '0.5')
     ax[1].set_xlabel('Distance along fault (km)')
-    ax[1].set_ylabel('Right lateral slip rate(mm/yr)')
-   # ax[1].set_xlim(100,580)
+    ax[1].set_ylabel('Uplift rate (mm/yr)')
+    ax[1].set_yscale('log')
+    ax[1].set_ylim(10**-2,10**1)
 
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes.png', dpi=300)
     plt.clf()
 
-def plot_slip_rates_along_fault_clusters(river_csv, slip_rate_csv):
+def plot_uplift_rates_along_fault_clusters(river_csv, uplift_rate_csv):
     """
     Read in a csv file with slip rates along the fault and plot
     compared to distance along the shapefile
@@ -395,7 +396,7 @@ def plot_slip_rates_along_fault_clusters(river_csv, slip_rate_csv):
     #remove negative channel slopes
     #river_df = river_df[river_df['slope'] > 0]
     # csv with the slip rates
-    sr_df = pd.read_csv(slip_rate_csv)
+    sr_df = pd.read_csv(uplift_rate_csv)
 
     # set up a figure
     cluster_ids = river_df.cluster_id.unique()
@@ -439,8 +440,8 @@ def plot_slip_rates_along_fault_clusters(river_csv, slip_rate_csv):
 
     # now plot the slip rate data
     ax[-1].grid(color='0.8', linestyle='--', which='both')
-    ax[-1].errorbar(sr_df['fault_dist'], sr_df['slip_rate'], yerr=sr_df['slip_rate_u'], fmt='o', mec='k', mfc='w', ms=5, ecolor='k', capsize=2)
-    ax[-1].set_ylabel('Slip rate (mm/yr)')
+    ax[-1].scatter(sr_df['fault_dist'], sr_df['RU(mm/yr)'], s=5,c='0.5')
+    ax[-1].set_ylabel('Uplift rate (mm/yr)')
 
    
     # axis formatting
@@ -455,9 +456,9 @@ def plot_slip_rates_along_fault_clusters(river_csv, slip_rate_csv):
     plt.clf()
 
 
-def plot_dominant_cluster_along_fault_with_slip_rate(river_csv, slip_rate_csv):
+def plot_dominant_cluster_along_fault_with_uplift_rate(river_csv, uplift_rate_csv):
     """
-    Read in a csv file with slip rates along the fault and plot
+    Read in a csv file with uplift rates along the fault and plot
     compared to distance along the shapefile
     """
     # csv with the river profiles
@@ -465,7 +466,7 @@ def plot_dominant_cluster_along_fault_with_slip_rate(river_csv, slip_rate_csv):
     #remove negative channel slopes
     #river_df = river_df[river_df['slope'] > 0]
     # csv with the slip rates
-    sr_df = pd.read_csv(slip_rate_csv)
+    sr_df = pd.read_csv(uplift_rate_csv)
 
     # set up a figure
     cluster_ids = river_df.cluster_id.unique()
@@ -512,8 +513,9 @@ def plot_dominant_cluster_along_fault_with_slip_rate(river_csv, slip_rate_csv):
 #
     # now plot the slip rate data
     ax[-1].grid(color='0.8', linestyle='--', which='both')
-    ax[-1].errorbar(sr_df['fault_dist'], sr_df['slip_rate'], yerr=sr_df['slip_rate_u'], fmt='o', mec='k', mfc='w', ms=5, ecolor='k', capsize=2)
-    ax[-1].set_ylabel('Slip rate (mm/yr)')
+    ax[-1].scatter(sr_df['fault_dist'], sr_df['RU(mm/yr)'],s=5, c='0.5')
+    ax[-1].set_ylabel('Uplift rate (mm/yr)')
+    ax[-1].set_yscale('log')
 
    
     # axis formatting
@@ -545,10 +547,9 @@ output_csv=DataDirectory+threshold_lvl+fname_prefix+'_profiles_fault_dist.csv'
 # circles
 #get_channel_slope_around_each_point(output_shapefile, cluster_csv, radius=1)
 
-# slip rates
-slip_rate_csv='/raid/fclubb/san_andreas/Slip_rates/Tong_2013_InSAR_wtf.csv'
-output_sr_csv='/raid/fclubb/san_andreas/Slip_rates/Tong_2013_InSAR_fault_dist.csv'
-#get_distance_along_fault_from_points(slip_rate_csv)
-#plot_slip_rates_along_fault_slopes(output_csv, output_sr_csv)
-#plot_slip_rates_along_fault_clusters(output_csv, output_sr_csv)
-plot_dominant_cluster_along_fault_with_slip_rate(output_csv, output_sr_csv)
+# uplift rates
+uplift_rate_csv='/raid/fclubb/san_andreas/Uplift_rates/Spotila_2007_dist.csv'
+#get_distance_along_fault_from_points(uplift_rate_csv)
+plot_uplift_rates_along_fault_slopes(output_csv, uplift_rate_csv)
+#plot_uplift_rates_along_fault_clusters(output_csv, output_sr_csv)
+plot_dominant_cluster_along_fault_with_uplift_rate(output_csv, uplift_rate_csv)
