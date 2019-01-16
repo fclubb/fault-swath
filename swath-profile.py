@@ -396,10 +396,23 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv):
     # rolling maxima of uplift rate
     sorted_df = sr_df.sort_values(by=['fault_dist']) 
     sorted_df['U_rollmax'] = sorted_df['RU(mm/yr)'].rolling(5).max()
-    roll_max = sorted_df.rolling(10)
     #print(roll_max)
     #ax[1].plot(sorted_df['fault_dist'], sorted_df['U_rollmax'], 'k--', zorder=8)
-    ax[1].fill_between(sorted_df['fault_dist'],sorted_df['U_rollmax'], zorder=5, color='0.5', edgecolor='0.5', alpha=0.7)
+#    ax[1].fill_between(sorted_df['fault_dist'],sorted_df['U_rollmax'], zorder=5, color='0.5', edgecolor='0.5', alpha=0.7)
+
+    uplift_rate = sorted_df['RU(mm/yr)'].values
+    dist = sorted_df['fault_dist'].values
+    new_uplift = np.empty(len(uplift_rate))
+    
+    power=100.
+    lenscale=5
+    for i in range(0, len(uplift_rate)):
+        weights= np.exp(-(dist-dist[i])**2/lenscale)
+        summe=np.sum(weights*uplift_rate**power)
+        new_uplift[i]=(summe/np.sum(weights))**(1/power)
+
+    ax[1].fill_between(dist, new_uplift, zorder=5, color='0.5',edgecolor='0.5', alpha=0.7)
+
 
     # trying a convex hull
     #points = np.column_stack((sorted_df['fault_dist'], sorted_df['RU(mm/yr)']))
@@ -412,7 +425,7 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv):
     ax[1].set_xlabel('Distance along fault (km)')
     ax[1].set_ylabel('Rock uplift rate (mm/yr)')
     ax[1].set_yscale('log')
-    ax[1].set_ylim(10**-1.6,10**1)
+    ax[1].set_ylim(10**-1.6,10**2)
 
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes.png', dpi=300)
     plt.clf()
