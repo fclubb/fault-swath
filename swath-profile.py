@@ -66,6 +66,19 @@ def find_vicenty_distance_along_line(line):
         distances.append(temp_dist)
     return distances
 
+def gaussian_weighted_average(x, y, power=100., lenscale=5):
+    """
+    function to compute a gaussian weighted average of an array y with x
+    """
+    new_y = np.empty(len(y))
+    for i in range(0, len(x)):
+        weights= np.exp(-(x-x[i])**2/lenscale)
+        summe=np.sum(weights*y**power)
+        new_y[i]=(summe/np.sum(weights))**(1/power)
+
+    return new_y
+
+
 def get_points_along_line(n=1024):
     """
     Interpolate a series of points at equal distances along an input line shapefile. Arguments that need to be supplied are:
@@ -393,35 +406,14 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv):
     ax[1].grid(color='0.8', linestyle='--', which='both')
     ax[1].scatter(x=sr_df['fault_dist'], y=sr_df['RU(mm/yr)'], s=20, marker='D', c= '0.4', edgecolors='k', zorder=10)
 
-    # rolling maxima of uplift rate
-    sorted_df = sr_df.sort_values(by=['fault_dist']) 
-    sorted_df['U_rollmax'] = sorted_df['RU(mm/yr)'].rolling(5).max()
-    #print(roll_max)
-    #ax[1].plot(sorted_df['fault_dist'], sorted_df['U_rollmax'], 'k--', zorder=8)
-#    ax[1].fill_between(sorted_df['fault_dist'],sorted_df['U_rollmax'], zorder=5, color='0.5', edgecolor='0.5', alpha=0.7)
-
+    # gaussian average of uplift rate to get maxima
+    sorted_df = sr_df.sort_values(by='fault_dist')
     uplift_rate = sorted_df['RU(mm/yr)'].values
     dist = sorted_df['fault_dist'].values
-    new_uplift = np.empty(len(uplift_rate))
+    new_uplift = gaussian_weighted_average(dist, uplift_rate)
     
-    power=100.
-    lenscale=5
-    for i in range(0, len(uplift_rate)):
-        weights= np.exp(-(dist-dist[i])**2/lenscale)
-        summe=np.sum(weights*uplift_rate**power)
-        new_uplift[i]=(summe/np.sum(weights))**(1/power)
-
     ax[1].fill_between(dist, new_uplift, zorder=5, color='0.5',edgecolor='0.5', alpha=0.7)
-
-
-    # trying a convex hull
-    #points = np.column_stack((sorted_df['fault_dist'], sorted_df['RU(mm/yr)']))
-    #tri = Delaunay(points)
-    #boundary = (points[tri.convex_hull]).flatten()
-    #bx = boundary[0:-2:2]
-    #by = boundary[1:-1:2]
-    #ax[1].plot(bx, by, 'k--')
-     
+    
     ax[1].set_xlabel('Distance along fault (km)')
     ax[1].set_ylabel('Rock uplift rate (mm/yr)')
     ax[1].set_yscale('log')
@@ -482,11 +474,20 @@ def plot_uplift_rates_along_fault_clusters(river_csv, uplift_rate_csv):
         ax[i].set_title(titles[i], fontsize=10)
         ax[i].set_ylim(0,100)
 
-    # now plot the slip rate data
+    # now plot the uplift rate data
     ax[-1].grid(color='0.8', linestyle='--', which='both')
-    ax[-1].scatter(sr_df['fault_dist'], sr_df['RU(mm/yr)'], s=5,c='0.5')
-    ax[-1].set_ylabel('Uplift rate (mm/yr)')
+    ax[-1].scatter(x=sr_df['fault_dist'], y=sr_df['RU(mm/yr)'], s=20, marker='D', c= '0.4', edgecolors='k', zorder=10)
 
+    # gaussian average of uplift rate to get maxima
+    sorted_df = sr_df.sort_values(by='fault_dist')
+    uplift_rate = sorted_df['RU(mm/yr)'].values
+    dist = sorted_df['fault_dist'].values
+    new_uplift = gaussian_weighted_average(dist, uplift_rate)
+    
+    ax[-1].fill_between(dist, new_uplift, zorder=5, color='0.5',edgecolor='0.5', alpha=0.7)
+    ax[-1].set_ylabel('Rock uplift rate (mm/yr)')
+    ax[-1].set_yscale('log')
+    ax[-1].set_ylim(10**-1.6,10**2)
 
     # axis formatting
     plt.xlabel('Distance along fault (km)')
@@ -555,11 +556,22 @@ def plot_dominant_cluster_along_fault_with_uplift_rate(river_csv, uplift_rate_cs
 #        ax[i].set_title(titles[i], fontsize=10)
 #        ax[i].set_ylim(0,100)
 #
-    # now plot the slip rate data
+
+    # now plot the uplift rate data
     ax[-1].grid(color='0.8', linestyle='--', which='both')
-    ax[-1].scatter(sr_df['fault_dist'], sr_df['RU(mm/yr)'],s=5, c='0.5')
-    ax[-1].set_ylabel('Uplift rate (mm/yr)')
+    ax[-1].scatter(x=sr_df['fault_dist'], y=sr_df['RU(mm/yr)'], s=20, marker='D', c= '0.4', edgecolors='k', zorder=10)
+
+    # gaussian average of uplift rate to get maxima
+    sorted_df = sr_df.sort_values(by='fault_dist')
+    uplift_rate = sorted_df['RU(mm/yr)'].values
+    dist = sorted_df['fault_dist'].values
+    new_uplift = gaussian_weighted_average(dist, uplift_rate)
+    
+    ax[-1].fill_between(dist, new_uplift, zorder=5, color='0.5',edgecolor='0.5', alpha=0.7)
+    ax[-1].set_ylabel('Rock uplift rate (mm/yr)')
     ax[-1].set_yscale('log')
+    ax[-1].set_ylim(10**-1.6,10**2)
+
 
 
     # axis formatting
@@ -594,12 +606,12 @@ output_csv=DataDirectory+threshold_lvl+fname_prefix+'_profiles_fault_dist.csv'
 # uplift rates
 uplift_rate_csv='/raid/fclubb/san_andreas/Uplift_rates/Spotila_2007.csv'
 output_uplift_csv='/raid/fclubb/san_andreas/Uplift_rates/Spotila_2007_dist.csv'
-#get_distance_along_fault_from_points(uplift_rate_csv, output_uplift_csv)
+get_distance_along_fault_from_points(uplift_rate_csv, output_uplift_csv)
 
 # labels
 labels_csv='/raid/fclubb/san_andreas/Uplift_rates/placenames.csv'
 get_distance_along_fault_from_points(labels_csv, labels_csv)
 
 plot_uplift_rates_along_fault_slopes(output_csv, output_uplift_csv)
-#plot_uplift_rates_along_fault_clusters(output_csv, output_sr_csv)
-#plot_dominant_cluster_along_fault_with_uplift_rate(output_csv, output_uplift_csv)
+plot_uplift_rates_along_fault_clusters(output_csv, output_uplift_csv)
+plot_dominant_cluster_along_fault_with_uplift_rate(output_csv, output_uplift_csv)
