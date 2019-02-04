@@ -387,7 +387,7 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv):
     sorted_df = gr.sort_values(by='fault_dist')
     sorted_df['slope_rollmean'] = sorted_df['median'].rolling(10).median()
     ax[0].plot(sorted_df['fault_dist'], sorted_df['slope_rollmean'], c='r', zorder=100, lw=3, ls='--')
-    
+
     #gr.plot.scatter(x='fault_dist', y='median')
     ax[0].set_ylabel('Median channel slope (m/m)')
     #ax[0].set_xlim(100,580)
@@ -411,9 +411,9 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv):
     uplift_rate = sorted_df['RU(mm/yr)'].values
     dist = sorted_df['fault_dist'].values
     new_uplift = gaussian_weighted_average(dist, uplift_rate)
-    
+
     ax[1].fill_between(dist, new_uplift, zorder=5, color='0.5',edgecolor='0.5', alpha=0.7)
-    
+
     ax[1].set_xlabel('Distance along fault (km)')
     ax[1].set_ylabel('Rock uplift rate (mm/yr)')
     ax[1].set_yscale('log')
@@ -483,7 +483,7 @@ def plot_uplift_rates_along_fault_clusters(river_csv, uplift_rate_csv):
     uplift_rate = sorted_df['RU(mm/yr)'].values
     dist = sorted_df['fault_dist'].values
     new_uplift = gaussian_weighted_average(dist, uplift_rate)
-    
+
     ax[-1].fill_between(dist, new_uplift, zorder=5, color='0.5',edgecolor='0.5', alpha=0.7)
     ax[-1].set_ylabel('Rock uplift rate (mm/yr)')
     ax[-1].set_yscale('log')
@@ -566,7 +566,7 @@ def plot_dominant_cluster_along_fault_with_uplift_rate(river_csv, uplift_rate_cs
     uplift_rate = sorted_df['RU(mm/yr)'].values
     dist = sorted_df['fault_dist'].values
     new_uplift = gaussian_weighted_average(dist, uplift_rate)
-    
+
     ax[-1].fill_between(dist, new_uplift, zorder=5, color='0.5',edgecolor='0.5', alpha=0.7)
     ax[-1].set_ylabel('Rock uplift rate (mm/yr)')
     ax[-1].set_yscale('log')
@@ -608,10 +608,14 @@ uplift_rate_csv='/raid/fclubb/san_andreas/Uplift_rates/Spotila_2007.csv'
 output_uplift_csv='/raid/fclubb/san_andreas/Uplift_rates/Spotila_2007_dist.csv'
 get_distance_along_fault_from_points(uplift_rate_csv, output_uplift_csv)
 
+# gps data
+gps_csv='/raid/fclubb/san_andreas/Uplift_rates/gps/MIDAS_IGS08_SAF_100km.txt'
+output_gps_csv='/raid/fclubb/san_andreas/Uplift_rates/gps/MIDAS_IGS08_SAF_100km_dist.txt'
+
 # labels
 labels_csv='/raid/fclubb/san_andreas/Uplift_rates/placenames.csv'
 get_distance_along_fault_from_points(labels_csv, labels_csv)
 
-plot_uplift_rates_along_fault_slopes(output_csv, output_uplift_csv)
+plot_uplift_rates_along_fault_slopes(output_csv, output_gps_csv)
 plot_uplift_rates_along_fault_clusters(output_csv, output_uplift_csv)
 plot_dominant_cluster_along_fault_with_uplift_rate(output_csv, output_uplift_csv)
