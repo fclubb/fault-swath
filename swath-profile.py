@@ -20,7 +20,7 @@ from fiona import collection
 from shapely.geometry import shape, LineString, mapping
 from shapely.geometry import Point as shapelyPoint
 import pyproj as pyproj
-from geopy.distance import vincenty
+from geopy.distance import distance as GeoPyDist
 
 # Set up fonts for plots
 label_size = 12
@@ -59,9 +59,9 @@ def find_vicenty_distance_along_line(line):
     for i in range (len(coords)):
         #print(coords[i][0])
         if i == 0:
-            dist = vincenty((coords[i][1], coords[i][0]), (start_point[1], start_point[0])).km
+            dist = GeoPyDist((coords[i][1], coords[i][0]), (start_point[1], start_point[0])).km
         else:
-            dist = vincenty((coords[i][1], coords[i][0]), (coords[i-1][1], coords[i-1][0])).km
+            dist = GeoPyDist((coords[i][1], coords[i][0]), (coords[i-1][1], coords[i-1][0])).km
         temp_dist+=dist
         distances.append(temp_dist)
     return distances
@@ -112,7 +112,7 @@ def get_points_along_line(n=1024):
         else:
             #print(list(point.coords))
             # find the distance between this point and the previous point in metres (vicenty)
-            temp_metric = vincenty((point.y, point.x), (points[-1].y, points[-1].x)).km
+            temp_metric = GeoPyDist((point.y, point.x), (points[-1].y, points[-1].x)).km
         metric_dist+=temp_metric
         print(metric_dist)
         temp_dist+=dist
@@ -156,31 +156,44 @@ def get_distance_along_fault_from_points(pts_csv, output_pts_csv):
     lon = df.longitude.values
     lat = df.latitude.values
     distances = []
+    fault_normal_dists = [] # the distance away from the fault
 
     for i in range(len(lat)):
-        #print(lon[i], lat[i])
-        point = shapelyPoint(lon[i], lat[i])
-        dist = line_rvs.project(point)
-        np = line.interpolate(line.project(point))
-        # getting the distance - difficult because we need vicenty distance
-        # find the nearest point in the line distances (closest latitude)
-        idx = find_nearest_index(line_lat, lat[i])
-        #print(line_lat)
-        #print(lat[i], line_lat[idx])
-        dist = vincenty((line_lat[idx], line_lon[idx]), (np.y, np.x)).km
-        print(dist)
-        if line_lat[idx] < lat[i]:
-            # line point is at a lower latitude than the point - need to find the distance between them
-            # and minus that from the line distance
-            dist = line_dist[idx] - dist
+        if not np.isnan(lat[i]):
+            #create a shapely point 
+            point = shapelyPoint(lon[i], lat[i])
+            # find the distance of the point along the line
+            dist = line_rvs.project(point)
+            # shapely point on the line nearest to the initial point
+            line_pt = line.interpolate(line.project(point))
+            # getting the distance - difficult because we need vicenty distance
+            # find the nearest point in the line distances (closest latitude)
+            idx = find_nearest_index(line_lat, lat[i])
+            #print(line_lat)
+            #print(lat[i], line_lat[idx])
+            dist = GeoPyDist((line_lat[idx], line_lon[idx]), (line_pt.y, line_pt.x)).km
+            #print(dist)
+            if line_lat[idx] < lat[i]:
+                # line point is at a lower latitude than the point - need to find the distance between them
+                # and minus that from the line distance
+                dist = line_dist[idx] - dist
+            else:
+                dist = line_dist[idx] + dist
+                print(dist)
+           
+            distances.append(dist)
+            # write the distance away from the fault for each point
+            print(lat[i], lon[i], line_pt.y, line_pt.x, point.y, point.x)
+            away_dist = GeoPyDist((line_pt.y, line_pt.x), (point.y, point.x)).km
+            print('Dist from fault:', away_dist)
+            fault_normal_dists.append(away_dist)
         else:
-            dist = line_dist[idx] + dist
-            print(dist)
-
-        distances.append(dist)
+            distances.append(np.nan)
+            fault_normal_dists.append(np.nan)    
 
     # save the distances to csv
     df['fault_dist'] = distances
+    df['fault_normal_dist'] = fault_normal_dists
     df.to_csv(output_pts_csv, index=False)
 
     #plt.scatter(distances, df['slip_rate'])
@@ -356,7 +369,7 @@ def plot_channel_slope_along_fault(csv):
     plt.savefig(output_fname, dpi=300)
     plt.clf()
 
-def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv):
+def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv):
     """
     Read in a csv file with slip rates along the fault and plot
     compared to distance along the shapefile
@@ -366,11 +379,13 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv):
     river_df = pd.read_csv(river_csv)
     #remove negative channel slopes
     river_df = river_df[river_df['slope'] > 0]
-    # csv with the slip rates
+    # csv with the thermochron uplift rates
     sr_df = pd.read_csv(uplift_rate_csv)
+    # csv with the gps uplift rates
+    gps_df = pd.read_csv(gps_csv)
 
     # set up a figure
-    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10,10), sharex=True)
+    fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(10,10), sharex=True)
 
     # plot the channel slope data
     # now group by the fault dist and plot percentages
@@ -381,7 +396,7 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv):
     gr = river_df.groupby(['fault_dist'])['slope'].agg(f).reset_index()
     print(gr)
     ax[0].grid(color='0.8', linestyle='--', which='both')
-    ax[0].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.3', mec='0.3', c='0.4', capsize=2, alpha=0.3)
+    ax[0].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.3', mec='0.3', c='0.4', capsize=2, alpha=0.1)
 
     # rolling mean of channel slopes
     sorted_df = gr.sort_values(by='fault_dist')
@@ -402,9 +417,10 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv):
     for i in range(0, len(labels)):
         ax[0].annotate(labels[i], xy=(labels_dist[i],0.72), xytext=(labels_dist[i], 0.8), ha='center', fontsize=10, arrowprops=dict(facecolor='k', arrowstyle="->"))
 
-    # plot the uplift rate data
+    # plot the uplift rate data from thermochron
+    sizes = 1/sr_df['fault_normal_dist'] * 10
     ax[1].grid(color='0.8', linestyle='--', which='both')
-    ax[1].scatter(x=sr_df['fault_dist'], y=sr_df['RU(mm/yr)'], s=20, marker='D', c= '0.4', edgecolors='k', zorder=10)
+    ax[1].scatter(x=sr_df['fault_dist'], y=sr_df['RU(mm/yr)'], s=sizes, marker='D', c= '0.4', edgecolors='k', zorder=10)
 
     # gaussian average of uplift rate to get maxima
     sorted_df = sr_df.sort_values(by='fault_dist')
@@ -414,10 +430,32 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv):
 
     ax[1].fill_between(dist, new_uplift, zorder=5, color='0.5',edgecolor='0.5', alpha=0.7)
 
-    ax[1].set_xlabel('Distance along fault (km)')
+    #ax[1].set_xlabel('Distance along fault (km)')
     ax[1].set_ylabel('Rock uplift rate (mm/yr)')
     ax[1].set_yscale('log')
-    ax[1].set_ylim(10**-1.6,10**2)
+    ax[1].set_ylim(10**-1.6,10**1.1)
+    ax[1].set_title('Thermochronometry')
+
+    # plot the gps uplift rate data
+    ax[2].grid(color='0.8', linestyle='--', which='both')
+    sizes = 1/gps_df['fault_normal_dist'] * 10
+    ax[2].scatter(x=gps_df['fault_dist'], y=gps_df['RU(mm/yr)'], s=sizes, marker='D', c='0.4', edgecolors='k', zorder=10)
+
+    # gaussian average of uplift rate to get maxima
+    sorted_df = gps_df.sort_values(by='fault_dist')
+    uplift_rate = sorted_df['RU(mm/yr)'].values
+    dist = sorted_df['fault_dist'].values
+    new_uplift = gaussian_weighted_average(dist, uplift_rate)
+
+    ax[2].fill_between(dist, new_uplift, zorder=5, color='0.5',edgecolor='0.5', alpha=0.7)
+    
+    ax[2].set_xlabel('Distance along fault (km)')
+    ax[2].set_ylabel('Uplift rate (mm/yr)')
+    ax[2].set_yscale('log')
+    ax[2].set_title('GPS')
+    #ax[2].set_ylim(0,10**1.1)
+
+    plt.xlim(100,1100)
 
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes.png', dpi=300)
     plt.clf()
@@ -570,7 +608,7 @@ def plot_dominant_cluster_along_fault_with_uplift_rate(river_csv, uplift_rate_cs
     ax[-1].fill_between(dist, new_uplift, zorder=5, color='0.5',edgecolor='0.5', alpha=0.7)
     ax[-1].set_ylabel('Rock uplift rate (mm/yr)')
     ax[-1].set_yscale('log')
-    ax[-1].set_ylim(10**-1.6,10**2)
+    #ax[-1].set_ylim(10**-1.6,10**2)
 
 
 
@@ -609,13 +647,14 @@ output_uplift_csv='/raid/fclubb/san_andreas/Uplift_rates/Spotila_2007_dist.csv'
 get_distance_along_fault_from_points(uplift_rate_csv, output_uplift_csv)
 
 # gps data
-gps_csv='/raid/fclubb/san_andreas/Uplift_rates/gps/MIDAS_IGS08_SAF_100km.txt'
-output_gps_csv='/raid/fclubb/san_andreas/Uplift_rates/gps/MIDAS_IGS08_SAF_100km_dist.txt'
+gps_csv='/raid/fclubb/san_andreas/Uplift_rates/gps/MIDAS_IGS08_SAF_50km.csv'
+output_gps_csv='/raid/fclubb/san_andreas/Uplift_rates/gps/MIDAS_IGS08_SAF_50km_dist.csv'
+get_distance_along_fault_from_points(gps_csv, output_gps_csv)
 
 # labels
 labels_csv='/raid/fclubb/san_andreas/Uplift_rates/placenames.csv'
 get_distance_along_fault_from_points(labels_csv, labels_csv)
 
-plot_uplift_rates_along_fault_slopes(output_csv, output_gps_csv)
+plot_uplift_rates_along_fault_slopes(output_csv, output_uplift_csv, output_gps_csv)
 plot_uplift_rates_along_fault_clusters(output_csv, output_uplift_csv)
 plot_dominant_cluster_along_fault_with_uplift_rate(output_csv, output_uplift_csv)
