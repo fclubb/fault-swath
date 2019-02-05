@@ -71,10 +71,14 @@ def gaussian_weighted_average(x, y, power=100., lenscale=5):
     function to compute a gaussian weighted average of an array y with x
     """
     new_y = np.empty(len(y))
+    print(x)
     for i in range(0, len(x)):
         weights= np.exp(-(x-x[i])**2/lenscale)
+        #print(weights)
         summe=np.sum(weights*y**power)
+        #print(summe)
         new_y[i]=(summe/np.sum(weights))**(1/power)
+        #print(new_y[i])
 
     return new_y
 
@@ -418,7 +422,7 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv):
         ax[0].annotate(labels[i], xy=(labels_dist[i],0.72), xytext=(labels_dist[i], 0.8), ha='center', fontsize=10, arrowprops=dict(facecolor='k', arrowstyle="->"))
 
     # plot the uplift rate data from thermochron
-    sizes = 1/sr_df['fault_normal_dist'] * 10
+    sizes = np.log(1/sr_df['fault_normal_dist'] * 100)*10
     ax[1].grid(color='0.8', linestyle='--', which='both')
     ax[1].scatter(x=sr_df['fault_dist'], y=sr_df['RU(mm/yr)'], s=sizes, marker='D', c= '0.4', edgecolors='k', zorder=10)
 
@@ -426,9 +430,12 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv):
     sorted_df = sr_df.sort_values(by='fault_dist')
     uplift_rate = sorted_df['RU(mm/yr)'].values
     dist = sorted_df['fault_dist'].values
+    # nan checking
+    uplift_rate = np.array([x for i, x in enumerate(uplift_rate) if not np.isnan(dist[i])])
+    dist = np.array([x for i, x in enumerate(dist) if not np.isnan(dist[i])])
+    
     new_uplift = gaussian_weighted_average(dist, uplift_rate)
-
-    ax[1].fill_between(dist, new_uplift, zorder=5, color='0.5',edgecolor='0.5', alpha=0.7)
+    ax[1].fill_between(dist, new_uplift, zorder=5, color='0.5',edgecolor='0.5', alpha=0.5)
 
     #ax[1].set_xlabel('Distance along fault (km)')
     ax[1].set_ylabel('Rock uplift rate (mm/yr)')
@@ -438,7 +445,7 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv):
 
     # plot the gps uplift rate data
     ax[2].grid(color='0.8', linestyle='--', which='both')
-    sizes = 1/gps_df['fault_normal_dist'] * 10
+    sizes = np.log(1/gps_df['fault_normal_dist'] * 100)*10
     ax[2].scatter(x=gps_df['fault_dist'], y=gps_df['RU(mm/yr)'], s=sizes, marker='D', c='0.4', edgecolors='k', zorder=10)
 
     # gaussian average of uplift rate to get maxima
@@ -447,7 +454,7 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv):
     dist = sorted_df['fault_dist'].values
     new_uplift = gaussian_weighted_average(dist, uplift_rate)
 
-    ax[2].fill_between(dist, new_uplift, zorder=5, color='0.5',edgecolor='0.5', alpha=0.7)
+    ax[2].fill_between(dist, new_uplift, zorder=5, color='0.5',edgecolor='0.5', alpha=0.5)
     
     ax[2].set_xlabel('Distance along fault (km)')
     ax[2].set_ylabel('Uplift rate (mm/yr)')
