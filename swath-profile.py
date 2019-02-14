@@ -66,7 +66,7 @@ def find_vicenty_distance_along_line(line):
         distances.append(temp_dist)
     return distances
 
-def gaussian_weighted_average(x, y, power=100., lenscale=5):
+def gaussian_weighted_average(x, y, power=100., lenscale=3):
     """
     function to compute a gaussian weighted average of an array y with x
     """
@@ -385,6 +385,7 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv):
     river_df = river_df[river_df['slope'] > 0]
     # csv with the thermochron uplift rates
     sr_df = pd.read_csv(uplift_rate_csv)
+    sr_df = sr_df[np.isnan(sr_df['fault_dist']) == False]
     # csv with the gps uplift rates
     gps_df = pd.read_csv(gps_csv)
 
@@ -464,7 +465,7 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv):
 
     plt.xlim(100,1100)
 
-    plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes.png', dpi=300)
+    plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
 
 def plot_uplift_rates_along_fault_clusters(river_csv, uplift_rate_csv):
@@ -541,8 +542,8 @@ def plot_uplift_rates_along_fault_clusters(river_csv, uplift_rate_csv):
     #plt.xlim(100,1100)
 
     #save the data
-    plot_df.to_csv(DataDirectory+threshold_lvl+fname_prefix+'_fault_dist_clusters.csv')
-    plt.savefig(DataDirectory+threshold_lvl+fname_prefix+'_fault_dist_clusters.png', dpi=300)
+    plot_df.to_csv(DataDirectory+threshold_lvl+fname_prefix+'_fault_dist_clusters_SO{}.csv'.format(stream_order))
+    plt.savefig(DataDirectory+threshold_lvl+fname_prefix+'_fault_dist_clusters_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
 
 
@@ -626,41 +627,58 @@ def plot_dominant_cluster_along_fault_with_uplift_rate(river_csv, uplift_rate_cs
 #    #plt.xlim(100,1100)
 
     #save the data
-    plot_df.to_csv(DataDirectory+threshold_lvl+fname_prefix+'_fault_dist_main_cluster.csv')
-    plt.savefig(DataDirectory+threshold_lvl+fname_prefix+'_fault_dist_main_cluster.png', dpi=300)
+    plot_df.to_csv(DataDirectory+threshold_lvl+fname_prefix+'_fault_dist_main_cluster_SO{}.csv'.format(stream_order))
+    plt.savefig(DataDirectory+threshold_lvl+fname_prefix+'_fault_dist_main_cluster_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
 
+#====================================================================#
+# Main 
+#====================================================================#
 
+# set the input parameters - will eventually change this to argparse
 DataDirectory='/raid/fclubb/san_andreas/SAF_combined/SAF_only/'
 threshold_lvl='threshold_2/'
 fname_prefix='SAF_only'
-#subdirs = [x[0] for x in os.walk(DataDirectory)]
+stream_order = 3
+
 baseline_shapefile='SanAndreasFault.shp'
 output_shapefile='SanAndreasPoints.shp'
-#points, distances = get_points_along_line(n=512)
-#coeffs = get_orthogonal_coefficients(points)
-cluster_csv = DataDirectory+threshold_lvl+fname_prefix+'_profiles_clustered_SO3.csv'
-output_csv=DataDirectory+threshold_lvl+fname_prefix+'_profiles_fault_dist.csv'
-#bisection_method(points, coeffs, distances, cluster_csv, output_csv)
-#plot_cluster_stats_along_fault(output_csv)
-#plot_channel_slope_along_fault(output_csv)
 
-# circles
-#get_channel_slope_around_each_point(output_shapefile, cluster_csv, radius=1)
+#--------------------------------------------------------------------#
+# channel profiles
 
+cluster_csv = DataDirectory+threshold_lvl+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order)
+output_csv=DataDirectory+threshold_lvl+fname_prefix+'_profiles_fault_dist_S0{}.csv'.format(stream_order)
+# check if the fault dist csv already exists
+if not os.path.isfile(output_csv):
+    points, distances = get_points_along_line(n=512)
+    coeffs = get_orthogonal_coefficients(points)
+    bisection_method(points, coeffs, distances, cluster_csv, output_csv)
+
+#--------------------------------------------------------------------#
 # uplift rates
+
 uplift_rate_csv='/raid/fclubb/san_andreas/Uplift_rates/Spotila_2007.csv'
 output_uplift_csv='/raid/fclubb/san_andreas/Uplift_rates/Spotila_2007_dist.csv'
-get_distance_along_fault_from_points(uplift_rate_csv, output_uplift_csv)
+if not os.path.isfile(output_uplift_csv):
+    get_distance_along_fault_from_points(uplift_rate_csv, output_uplift_csv)
 
+#--------------------------------------------------------------------#
 # gps data
+
 gps_csv='/raid/fclubb/san_andreas/Uplift_rates/gps/MIDAS_IGS08_SAF_50km.csv'
 output_gps_csv='/raid/fclubb/san_andreas/Uplift_rates/gps/MIDAS_IGS08_SAF_50km_dist.csv'
-get_distance_along_fault_from_points(gps_csv, output_gps_csv)
+if not os.path.isfile(output_gps_csv):
+    get_distance_along_fault_from_points(gps_csv, output_gps_csv)
 
+#--------------------------------------------------------------------#
 # labels
+
 labels_csv='/raid/fclubb/san_andreas/Uplift_rates/placenames.csv'
 get_distance_along_fault_from_points(labels_csv, labels_csv)
+
+#--------------------------------------------------------------------#
+# now run the plotting functions
 
 plot_uplift_rates_along_fault_slopes(output_csv, output_uplift_csv, output_gps_csv)
 plot_uplift_rates_along_fault_clusters(output_csv, output_uplift_csv)
