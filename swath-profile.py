@@ -373,7 +373,17 @@ def plot_channel_slope_along_fault(csv):
     plt.savefig(output_fname, dpi=300)
     plt.clf()
 
-def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv):
+def process_gps_data(gps_df, threshold_record_length=5, threshold_uplift=5):
+    """ 
+    Thin the gps data to remove stations with short record lengths and
+    unrealistically high uplift or subsidence rates
+    """
+    gps_df = gps_df[gps_df['record_length'] > threshold_record_length]    
+    gps_df = gps_df[gps_df['RU(mm/yr)'] < threshold_uplift]
+    gps_df = gps_df[gps_df['RU(mm/yr)'] > -threshold_uplift]
+    return gps_df
+
+def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv, gps_csv_filt):
     """
     Read in a csv file with slip rates along the fault and plot
     compared to distance along the shapefile
@@ -388,6 +398,9 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv):
     sr_df = sr_df[np.isnan(sr_df['fault_dist']) == False]
     # csv with the gps uplift rates
     gps_df = pd.read_csv(gps_csv)
+    # process the gps data to remove points with a record length less than 5 years and uplift rates > 5 or < -5 mm/yr (noise)
+    gps_df = process_gps_data(gps_df, 5, 5)
+    gps_df.to_csv(gps_csv_filt, index=False)
 
     # set up a figure
     fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(10,10), sharex=True)
@@ -403,10 +416,10 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv):
     ax[0].grid(color='0.8', linestyle='--', which='both')
     ax[0].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.3', mec='0.3', c='0.4', capsize=2, alpha=0.1)
 
-    # rolling mean of channel slopes
-    sorted_df = gr.sort_values(by='fault_dist')
-    sorted_df['slope_rollmedian'] = sorted_df['median'].rolling(10).median()
-    ax[0].plot(sorted_df['fault_dist'], sorted_df['slope_rollmedian'], c='r', zorder=100, lw=3, ls='--')
+    # rolling median of channel slopes
+    slopes_df = gr.sort_values(by='fault_dist')
+    slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(10).median()
+    ax[0].plot(slopes_df['fault_dist'], slopes_df['slope_rollmedian'], c='r', zorder=100, lw=3, ls='--')
 
     #gr.plot.scatter(x='fault_dist', y='median')
     ax[0].set_ylabel('Median channel slope (m/m)')
@@ -428,7 +441,7 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv):
         if sizes[i] < 1:
             sizes[i] = 2 
     ax[1].grid(color='0.8', linestyle='--', which='both')
-    ax[1].scatter(x=sr_df['fault_dist'], y=sr_df['RU(mm/yr)'], s=sizes, marker='D', c= '0.4', edgecolors='k', zorder=10)
+    ax[1].scatter(x=sr_df['fault_dist'], y=sr_df['RU(mm/yr)'], s=sizes, marker='D', c= '0.5', edgecolors='0.2', zorder=10)
 
     # gaussian average of uplift rate to get maxima
     sorted_df = sr_df.sort_values(by='fault_dist')
@@ -439,7 +452,7 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv):
     dist = np.array([x for i, x in enumerate(dist) if not np.isnan(dist[i])])
 
     new_uplift = gaussian_weighted_average(dist, uplift_rate)
-    ax[1].fill_between(dist, new_uplift, zorder=5, color='0.5',edgecolor='0.5', alpha=0.5)
+    ax[1].fill_between(dist, new_uplift, zorder=5, color='0.8',edgecolor='k', alpha=0.8)
 
     #ax[1].set_xlabel('Distance along fault (km)')
     ax[1].set_ylabel('Rock uplift rate (mm/yr)')
@@ -449,30 +462,39 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv):
 
     # plot the gps uplift rate data
     ax[2].grid(color='0.8', linestyle='--', which='both')
-    sizes = np.log(1/gps_df['fault_normal_dist'] * 100)*10
+    sizes = (np.log(1/gps_df['fault_normal_dist'] * 100)*10).values
+    print("SIZES:", sizes)
     for i in range(len(sizes)):
         if sizes[i] < 1:
             sizes[i] = 2 
-    ax[2].scatter(x=gps_df['fault_dist'], y=gps_df['RU(mm/yr)'], s=sizes, marker='D', c='0.4', edgecolors='k', zorder=10)
+    ax[2].scatter(x=gps_df['fault_dist'], y=gps_df['RU(mm/yr)'], s=sizes, marker='D', c='0.4', alpha=0.3, edgecolors='0.2', zorder=10)
 
-    # gaussian average of uplift rate to get maxima
+    
+    # rolling median of gps uplift rates
     sorted_df = gps_df.sort_values(by='fault_dist')
-    uplift_rate = sorted_df['RU(mm/yr)'].values
-    dist = sorted_df['fault_dist'].values
-    new_uplift = gaussian_weighted_average(dist, uplift_rate)
+    sorted_df['rollmedian'] = sorted_df['RU(mm/yr)'].rolling(10).median()
+    ax[2].plot(sorted_df['fault_dist'], sorted_df['rollmedian'], c='k', zorder=100, lw=3)
 
-    ax[2].fill_between(dist, new_uplift, zorder=5, color='0.5',edgecolor='0.5', alpha=0.5)
+    # add colours for uplift and subsidence
+    ax[2].axhspan(0, 5, alpha=0.4, color='red')
+    ax[2].axhspan(-5, 0, alpha=0.4, color='blue')
 
     ax[2].set_xlabel('Distance along fault (km)')
     ax[2].set_ylabel('Uplift rate (mm/yr)')
-    ax[2].set_yscale('log')
+    #ax[2].set_yscale('log')
     ax[2].set_title('GPS')
-    #ax[2].set_ylim(0,10**1.1)
+    ax[2].set_ylim(-5,5)
 
     plt.xlim(100,1100)
 
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
+
+    # make a plot of the thermochron uplift rate vs. median channel slope
+    print('UPLIFT RATE DIST:', dist)
+    print('UPLIFT RATE MAX:', new_uplift)
+    print('CHAN SLOPE DIST:', slopes_df['fault_dist'])
+    print('CHAN SLOPES:', slopes_df['slope_rollmedian'])
 
 def plot_uplift_rates_along_fault_clusters(river_csv, uplift_rate_csv):
     """
@@ -637,19 +659,21 @@ def plot_dominant_cluster_along_fault_with_uplift_rate(river_csv, uplift_rate_cs
     plt.savefig(DataDirectory+threshold_lvl+fname_prefix+'_fault_dist_main_cluster_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
 
-def plot_junction_angles_along_fault(junction_angle_csv, uplift_rate_csv, gps_csv):
+def plot_junction_angles_along_fault(junction_angle_csv, slip_rate_csv, threshold_so=3):
     """
     Make a plot of the junction angle with distance along the fault
+    Args:
+        threshold_so: remove any stream orders below this from analysis (default=3)
     """
     # csv with the river profiles
     angle_df = pd.read_csv(junction_angle_csv)
-    # csv with the thermochron uplift rates
-    sr_df = pd.read_csv(uplift_rate_csv)
-    # csv with the gps uplift rates
-    gps_df = pd.read_csv(gps_csv)
+    # remove any angles below the threshold so
+    angle_df = angle_df[angle_df['junction_stream_order'] > threshold_so]
+    # csv with the InSAR slip rates
+    sr_df = pd.read_csv(slip_rate_csv)
 
     # set up a figure
-    fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(10,10), sharex=True)
+    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10,10), sharex=True)
 
     # plot the juncton angle data
     # now group by the fault dist and plot percentages
@@ -681,8 +705,72 @@ def plot_junction_angles_along_fault(junction_angle_csv, uplift_rate_csv, gps_cs
     for i in range(0, len(labels)):
         ax[0].annotate(labels[i], xy=(labels_dist[i],0.72), xytext=(labels_dist[i], 0.8), ha='center', fontsize=10, arrowprops=dict(facecolor='k', arrowstyle="->"))
 
+    # plot the slip rate data
+    ax[1].scatter(sr_df['fault_dist'], sr_df['slip_rate'])
+    ax[1].set_xlabel('Distance along fault (km)')
+    ax[1].set_ylabel('Slip rate')
+
+    plt.savefig(DataDirectory+fname_prefix+'_fault_dist_JAngles.png', dpi=300)
+    plt.clf()
+
+def plot_drainage_density_along_fault(dd_csv, uplift_rate_csv, gps_csv):
+    """
+    Plot drainage density and uplift along the fault
+    """
+
+    # csv with the river profiles
+    dd_df = pd.read_csv(dd_csv)
+    # csv with the thermochron uplift rates
+    sr_df = pd.read_csv(uplift_rate_csv)
+    sr_df = sr_df[np.isnan(sr_df['fault_dist']) == False]
+    # csv with the gps uplift rates
+    gps_df = pd.read_csv(gps_csv)
+
+    # set up a figure
+    fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(10,10), sharex=True)
+
+    # plot the channel slope data
+    # now group by the fault dist and plot percentages
+    #f = {'median' : np.median,
+    #     'std' : np.std,
+    #     'q1': q1,
+    #     'q2': q2}
+    #gr = river_df.groupby(['fault_dist'])['slope'].agg(f).reset_index()
+    #print(gr)
+    #ax[0].grid(color='0.8', linestyle='--', which='both')
+    #ax[0].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.3', mec='0.3', c='0.4', capsize=2, alpha=0.1)
+
+    # rolling mean of channel slopes
+    #slopes_df = gr.sort_values(by='fault_dist')
+    #slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(10).median()
+    #ax[0].plot(slopes_df['fault_dist'], slopes_df['slope_rollmedian'], c='r', zorder=100, lw=3, ls='--')
+
+    # multiply dd values by 10*6 (m/km^2)
+    dd_df['drainage_density'] = dd_df['drainage_density'] * 1e6
+    # rolling median
+    this_df = dd_df.sort_values(by='fault_dist')
+    this_df['rollmedian'] = this_df['drainage_density'].rolling(20).median()
+    ax[0].plot(this_df['fault_dist'], this_df['rollmedian'], c='r', zorder=100, lw=2, ls='--')
+
+    ax[0].scatter(dd_df['fault_dist'], dd_df['drainage_density'],s=1, alpha=0.1, c='0.5')
+    #gr.plot.scatter(x='fault_dist', y='median')
+    ax[0].set_ylabel('Drainage density (m/km$^2$)')
+    ax[0].set_ylim(0, 100000)
+    #plt.legend(title='Cluster ID', loc='upper right')
+    #plt.show()
+
+    # placenames
+    labels_df = pd.read_csv(labels_csv)
+    labels = labels_df['Label']
+    labels_dist = labels_df['fault_dist']
+    for i in range(0, len(labels)):
+        ax[0].annotate(labels[i], xy=(labels_dist[i],1e5), xytext=(labels_dist[i], 1.2e5), ha='center', fontsize=10, arrowprops=dict(facecolor='k', arrowstyle="->"))
+
     # plot the uplift rate data from thermochron
-    sizes = np.log(1/sr_df['fault_normal_dist'] * 100)*10
+    sizes = np.log(1/sr_df['fault_normal_dist']*100)*10
+    for i in range(len(sizes)):
+        if sizes[i] < 1:
+            sizes[i] = 2 
     ax[1].grid(color='0.8', linestyle='--', which='both')
     ax[1].scatter(x=sr_df['fault_dist'], y=sr_df['RU(mm/yr)'], s=sizes, marker='D', c= '0.4', edgecolors='k', zorder=10)
 
@@ -706,15 +794,18 @@ def plot_junction_angles_along_fault(junction_angle_csv, uplift_rate_csv, gps_cs
     # plot the gps uplift rate data
     ax[2].grid(color='0.8', linestyle='--', which='both')
     sizes = np.log(1/gps_df['fault_normal_dist'] * 100)*10
+    for i in range(len(sizes)):
+        if sizes[i] < 1:
+            sizes[i] = 2 
     ax[2].scatter(x=gps_df['fault_dist'], y=gps_df['RU(mm/yr)'], s=sizes, marker='D', c='0.4', edgecolors='k', zorder=10)
 
     # gaussian average of uplift rate to get maxima
-    sorted_df = gps_df.sort_values(by='fault_dist')
-    uplift_rate = sorted_df['RU(mm/yr)'].values
-    dist = sorted_df['fault_dist'].values
-    new_uplift = gaussian_weighted_average(dist, uplift_rate)
+    sorted_df_gps = gps_df.sort_values(by='fault_dist')
+    uplift_rate_gps = sorted_df_gps['RU(mm/yr)'].values
+    dist_gps = sorted_df_gps['fault_dist'].values
+    new_uplift_gps = gaussian_weighted_average(dist_gps, uplift_rate_gps)
 
-    ax[2].fill_between(dist, new_uplift, zorder=5, color='0.5',edgecolor='0.5', alpha=0.5)
+    ax[2].fill_between(dist_gps, new_uplift_gps, zorder=5, color='0.5',edgecolor='0.5', alpha=0.5)
 
     ax[2].set_xlabel('Distance along fault (km)')
     ax[2].set_ylabel('Uplift rate (mm/yr)')
@@ -724,7 +815,7 @@ def plot_junction_angles_along_fault(junction_angle_csv, uplift_rate_csv, gps_cs
 
     plt.xlim(100,1100)
 
-    plt.savefig(DataDirectory+fname_prefix+'_fault_dist_JAngles.png', dpi=300)
+    plt.savefig(DataDirectory+fname_prefix+'_fault_dist_drainage_density.png', dpi=300)
     plt.clf()
 
 
@@ -759,6 +850,16 @@ if not os.path.isfile(output_angles_csv):
     bisection_method(points, coeffs, distances, angles_csv, output_angles_csv)
 
 #--------------------------------------------------------------------#
+# drainage density
+
+dd_csv = DataDirectory+fname_prefix+'_DrainageDensity.csv'
+output_dd_csv = DataDirectory+fname_prefix+'_DrainageDensity_dist.csv'
+if not os.path.isfile(output_dd_csv):
+    points, distances = get_points_along_line(n=512)
+    coeffs = get_orthogonal_coefficients(points)
+    bisection_method(points, coeffs, distances, dd_csv, output_dd_csv)
+
+#--------------------------------------------------------------------#
 # uplift rates
 
 uplift_rate_csv='/raid/fclubb/san_andreas/Uplift_rates/Spotila_2007.csv'
@@ -771,8 +872,19 @@ if not os.path.isfile(output_uplift_csv):
 
 gps_csv='/raid/fclubb/san_andreas/Uplift_rates/gps/MIDAS_IGS08_SAF_50km.csv'
 output_gps_csv='/raid/fclubb/san_andreas/Uplift_rates/gps/MIDAS_IGS08_SAF_50km_dist.csv'
+# name of csv file for after filtering (removing stations with less than 5 years of data and 
+# unrealistic uplift/subsidence rates
+gps_csv_filt='/raid/fclubb/san_andreas/Uplift_rates/gps/MIDAS_IGS08_SAF_50km_dist_filt.csv'
 if not os.path.isfile(output_gps_csv):
     get_distance_along_fault_from_points(gps_csv, output_gps_csv)
+
+#--------------------------------------------------------------------#
+# slip rates
+
+slip_csv='/raid/fclubb/san_andreas/Slip_rates/Tong_2013_InSAR.csv'
+output_slip_csv='/raid/fclubb/san_andreas/Slip_rates/Tong_2013_InSAR_fault_dist.csv'
+if not os.path.isfile(output_slip_csv):
+    get_distance_along_fault_from_points(slip_csv, output_slip_csv)
 
 #--------------------------------------------------------------------#
 # labels
@@ -780,7 +892,8 @@ if not os.path.isfile(output_gps_csv):
 labels_csv='/raid/fclubb/san_andreas/Uplift_rates/placenames.csv'
 get_distance_along_fault_from_points(labels_csv, labels_csv)
 
-plot_uplift_rates_along_fault_slopes(output_csv, output_uplift_csv, output_gps_csv)
+plot_uplift_rates_along_fault_slopes(output_csv, output_uplift_csv, output_gps_csv, gps_csv_filt)
+#plot_drainage_density_along_fault(output_dd_csv, output_uplift_csv, output_gps_csv)
 #plot_uplift_rates_along_fault_clusters(output_csv, output_uplift_csv)
 #plot_dominant_cluster_along_fault_with_uplift_rate(output_csv, output_uplift_csv)
-plot_junction_angles_along_fault(output_angles_csv, output_uplift_csv, output_gps_csv)
+#plot_junction_angles_along_fault(output_angles_csv, output_slip_csv, threshold_so=2)
