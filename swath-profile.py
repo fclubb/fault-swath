@@ -21,6 +21,9 @@ from shapely.geometry import shape, LineString, mapping
 from shapely.geometry import Point as shapelyPoint
 import pyproj as pyproj
 from geopy.distance import distance as GeoPyDist
+# peak detection
+import peakutils
+from peakutils.plot import plot as pplot
 
 # Set up fonts for plots
 label_size = 12
@@ -71,7 +74,7 @@ def gaussian_weighted_average(x, y, power=100., lenscale=3):
     function to compute a gaussian weighted average of an array y with x
     """
     new_y = np.empty(len(y))
-    print(x)
+    #print(x)
     for i in range(0, len(x)):
         weights= np.exp(-(x-x[i])**2/lenscale)
         #print(weights)
@@ -118,7 +121,7 @@ def get_points_along_line(n=1024):
             # find the distance between this point and the previous point in metres (vicenty)
             temp_metric = GeoPyDist((point.y, point.x), (points[-1].y, points[-1].x)).km
         metric_dist+=temp_metric
-        print(metric_dist)
+        #print(metric_dist)
         temp_dist+=dist
         points.append(shapelyPoint(point))
         distances.append(metric_dist)
@@ -142,7 +145,7 @@ def get_distance_along_fault_from_points(pts_csv, output_pts_csv):
     """
     df = pd.read_csv(pts_csv)
     #df = df.apply(pd.to_numeric, errors='coerce')
-    print(df)
+    #print(df)
     # read in the baseline shapefile
     c = collection(DataDirectory+baseline_shapefile, 'r')
     rec = c.next()
@@ -183,13 +186,13 @@ def get_distance_along_fault_from_points(pts_csv, output_pts_csv):
                 dist = line_dist[idx] - dist
             else:
                 dist = line_dist[idx] + dist
-                print(dist)
+                #print(dist)
 
             distances.append(dist)
             # write the distance away from the fault for each point
-            print(lat[i], lon[i], line_pt.y, line_pt.x, point.y, point.x)
+            #print(lat[i], lon[i], line_pt.y, line_pt.x, point.y, point.x)
             away_dist = GeoPyDist((line_pt.y, line_pt.x), (point.y, point.x)).km
-            print('Dist from fault:', away_dist)
+            #print('Dist from fault:', away_dist)
             fault_normal_dists.append(away_dist)
         else:
             distances.append(np.nan)
@@ -239,7 +242,7 @@ def get_orthogonal_coefficients(pts):
     from sympy import Point, Line, N
     # loop through the points between start, stop
     coeffs = []
-    print("Getting the coefficients of each line")
+    #print("Getting the coefficients of each line")
     for i in range(0, len(pts)):
         # start of line
         if i == 0:
@@ -275,7 +278,7 @@ def bisection_method(points, coeffs, distances, cluster_csv, output_csv):
         cluster_csv: name of the csv file with the cluster info
     """
     print("CHECKING SOME LENGTHS")
-    print(len(points), len(coeffs), len(distances))
+    #print(len(points), len(coeffs), len(distances))
     # read in the csv to a pandas dataframe
     df = pd.read_csv(cluster_csv)
     cluster_x = df.longitude.values
@@ -283,7 +286,7 @@ def bisection_method(points, coeffs, distances, cluster_csv, output_csv):
     alpha = np.empty(len(cluster_x))
 
     m = int(math.log(len(points),2))
-    print(m)
+    #print(m)
     # start with the middle baseline point (q = 2^(m-1))
     i = 1
     qs = np.full(len(cluster_x), 2**(int(m-1)))
@@ -319,7 +322,7 @@ def bisection_method(points, coeffs, distances, cluster_csv, output_csv):
     fault_dists = pd.Series([distances[int(q)] for q in qs])
     # append the distances to the dataframe
     df['fault_dist'] = fault_dists.values
-    print(df)
+    #print(df)
 
     df.to_csv(output_csv, index=False)
 
@@ -332,7 +335,7 @@ def plot_cluster_stats_along_fault(csv):
 
     # now group by the fault dist and plot percentages
     gr = df.groupby(['fault_dist', 'cluster_id'])[['id']].count()
-    print(gr)
+    #print(gr)
     plot_df = gr.unstack('cluster_id').loc[:, 'id']
     print(plot_df)
     plot_df.plot()
@@ -421,6 +424,16 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv, gp
     slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(10).median()
     ax[0].plot(slopes_df['fault_dist'], slopes_df['slope_rollmedian'], c='r', zorder=100, lw=3, ls='--')
 
+    # find and plot peaks in the rolling median
+    indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.5, min_dist=30))
+    print(indexes)
+    peak_dists = slopes_df['fault_dist'].iloc[indexes]
+    peak_slopes = slopes_df['slope_rollmedian'].iloc[indexes]
+    print("Channel slope peak distances: ", peak_dists.values)
+    ax[0].scatter(peak_dists, peak_slopes, marker="*", c='k', s=100, zorder=200)
+    for i, txt in enumerate(list(peak_dists)):
+        ax[0].annotate(str(int(txt))+' km', (list(peak_dists)[i], list(peak_slopes)[i]+0.05), zorder=300)
+
     #gr.plot.scatter(x='fault_dist', y='median')
     ax[0].set_ylabel('Median channel slope (m/m)')
     #ax[0].set_xlim(100,580)
@@ -441,7 +454,7 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv, gp
         if sizes[i] < 1:
             sizes[i] = 2 
     ax[1].grid(color='0.8', linestyle='--', which='both')
-    ax[1].scatter(x=sr_df['fault_dist'], y=sr_df['RU(mm/yr)'], s=sizes, marker='D', c= '0.5', edgecolors='0.2', zorder=10)
+    ax[1].scatter(x=sr_df['fault_dist'], y=sr_df['RU(mm/yr)'], s=sizes, marker='D', c= '0.4', edgecolors='0.2', zorder=10, alpha=0.3)
 
     # gaussian average of uplift rate to get maxima
     sorted_df = sr_df.sort_values(by='fault_dist')
@@ -452,7 +465,17 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv, gp
     dist = np.array([x for i, x in enumerate(dist) if not np.isnan(dist[i])])
 
     new_uplift = gaussian_weighted_average(dist, uplift_rate)
-    ax[1].fill_between(dist, new_uplift, zorder=5, color='0.8',edgecolor='k', alpha=0.8)
+    ax[1].fill_between(dist, new_uplift, zorder=5, color='0.5',edgecolor='k', alpha=0.8, lw=2)
+
+    # find and plot peaks in the thermochron uplift rate
+    indexes = list(peakutils.indexes(new_uplift, thres=0.01, min_dist=30))
+    print(indexes)
+    peak_dists = [dist[i] for i in indexes]
+    peak_uplifts = [new_uplift[i] for i in indexes]
+    print("Thermochron peak distances: ", peak_dists)
+    ax[1].scatter(peak_dists, peak_uplifts, marker="*", c='k', s=100, zorder=200)
+    for i, txt in enumerate(list(peak_dists)):
+        ax[1].annotate(str(int(txt))+' km', (list(peak_dists)[i]-30, list(peak_uplifts)[i]+0.7), zorder=300)
 
     #ax[1].set_xlabel('Distance along fault (km)')
     ax[1].set_ylabel('Rock uplift rate (mm/yr)')
@@ -467,7 +490,8 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv, gp
     for i in range(len(sizes)):
         if sizes[i] < 1:
             sizes[i] = 2 
-    ax[2].scatter(x=gps_df['fault_dist'], y=gps_df['RU(mm/yr)'], s=sizes, marker='D', c='0.4', alpha=0.3, edgecolors='0.2', zorder=10)
+    #ax[2].scatter(x=gps_df['fault_dist'], y=gps_df['RU(mm/yr)'], s=sizes, marker='D', c='0.4', alpha=0.3, edgecolors='0.2', zorder=10)
+    ax[2].errorbar(x=gps_df['fault_dist'], y=gps_df['RU(mm/yr)'], yerr=gps_df['RU_uc'], fmt='o',ms=4, marker='D', mfc='0.3', mec='0.3', c='0.4', capsize=2, alpha=0.2)
 
     
     # rolling median of gps uplift rates
@@ -477,10 +501,10 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv, gp
 
     # add colours for uplift and subsidence
     ax[2].axhspan(0, 5, alpha=0.4, color='red')
-    ax[2].axhspan(-5, 0, alpha=0.4, color='blue')
+    ax[2].axhspan(-5, 0, alpha=0.4, color='deepskyblue')
 
     ax[2].set_xlabel('Distance along fault (km)')
-    ax[2].set_ylabel('Uplift rate (mm/yr)')
+    ax[2].set_ylabel('GPS vertical rate (mm/yr)')
     #ax[2].set_yscale('log')
     ax[2].set_title('GPS')
     ax[2].set_ylim(-5,5)
@@ -491,10 +515,10 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv, gp
     plt.clf()
 
     # make a plot of the thermochron uplift rate vs. median channel slope
-    print('UPLIFT RATE DIST:', dist)
-    print('UPLIFT RATE MAX:', new_uplift)
-    print('CHAN SLOPE DIST:', slopes_df['fault_dist'])
-    print('CHAN SLOPES:', slopes_df['slope_rollmedian'])
+    #print('UPLIFT RATE DIST:', dist)
+    #print('UPLIFT RATE MAX:', new_uplift)
+    #print('CHAN SLOPE DIST:', slopes_df['fault_dist'])
+    #print('CHAN SLOPES:', slopes_df['slope_rollmedian'])
 
 def plot_uplift_rates_along_fault_clusters(river_csv, uplift_rate_csv):
     """
@@ -519,7 +543,7 @@ def plot_uplift_rates_along_fault_clusters(river_csv, uplift_rate_csv):
     plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
 
     color_dict = dict(zip(river_df.cluster_id.unique(), river_df.colour.unique()))
-    print(color_dict)
+    #print(color_dict)
     sorted_colors = [color_dict[key] for key in sorted(color_dict)]
     sorted_colors.append('k')
     print(sorted_colors)
