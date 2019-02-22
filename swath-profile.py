@@ -449,12 +449,15 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv, gp
         ax[0].annotate(labels[i], xy=(labels_dist[i],0.72), xytext=(labels_dist[i], 0.8), ha='center', fontsize=10, arrowprops=dict(facecolor='k', arrowstyle="->"))
 
     # plot the uplift rate data from thermochron
+    aft_df = sr_df[np.isnan(sr_df['AFT(Ma)']) == False]
+    ahe_df = sr_df[np.isnan(sr_df['AHe(Ma)']) == False]
     sizes = np.log(1/sr_df['fault_normal_dist']*100)*10
     for i in range(len(sizes)):
         if sizes[i] < 1:
             sizes[i] = 2 
     ax[1].grid(color='0.8', linestyle='--', which='both')
-    ax[1].scatter(x=sr_df['fault_dist'], y=sr_df['RU(mm/yr)'], s=sizes, marker='D', c= '0.4', edgecolors='0.2', zorder=10, alpha=0.3)
+    ax[1].scatter(x=aft_df['fault_dist'], y=aft_df['RU(mm/yr)'], s=sizes, marker='D', c= '0.4', edgecolors='0.2', zorder=10, alpha=0.3, label='AFT')
+    ax[1].scatter(x=ahe_df['fault_dist'], y=ahe_df['RU(mm/yr)'], s=sizes, marker='s', c= '0.4', edgecolors='0.2', zorder=10, alpha=0.3, label='AHe')
 
     # gaussian average of uplift rate to get maxima
     sorted_df = sr_df.sort_values(by='fault_dist')
@@ -482,6 +485,7 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv, gp
     ax[1].set_yscale('log')
     ax[1].set_ylim(10**-1.6,10**1.1)
     ax[1].set_title('Thermochronometry')
+    ax[1].legend(loc='upper left')
 
     # plot the gps uplift rate data
     ax[2].grid(color='0.8', linestyle='--', which='both')
@@ -842,6 +846,27 @@ def plot_drainage_density_along_fault(dd_csv, uplift_rate_csv, gps_csv):
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_drainage_density.png', dpi=300)
     plt.clf()
 
+def plot_stream_length_along_fault(river_csv):
+    """ 
+    Make a plot of median stream length along the fault to check that
+    slopes are not biased by changes in length
+    """
+    river_df = pd.read_csv(river_csv)
+    # for each id get the length
+    #ids = river_df.id.unique()
+    #print("N channels: ", len(ids))
+    gr = river_df.groupby(['id'])
+    counts = gr.size().to_frame(name='counts')
+    counts = counts.join(gr.agg({'fault_dist': 'mean'}).rename(columns={'fault_dist': 'fault_dist_mean'}))
+    counts = counts.join(gr.agg({'drainage_area': 'max'}).rename(columns={'drainage_area': 'drainage_area_max'}))
+    counts.reset_index()
+    print(counts)
+    print('Mean n pixels: ', counts.counts.mean())
+    print('Max n pixels: ', counts.counts.max())
+    plt.scatter(counts.fault_dist_mean, counts.drainage_area_max/1000000)
+    plt.xlabel('Distance along fault (km)')
+    plt.ylabel('Max drainage area (km$^2$)')
+    plt.savefig(DataDirectory+fname_prefix+'drainage_area_fault_dist.png')
 
 # set the input parameters - will eventually change this to argparse
 DataDirectory='/raid/fclubb/san_andreas/SAF_combined/SAF_only/'
@@ -916,6 +941,7 @@ if not os.path.isfile(output_slip_csv):
 labels_csv='/raid/fclubb/san_andreas/Uplift_rates/placenames.csv'
 get_distance_along_fault_from_points(labels_csv, labels_csv)
 
+#plot_stream_length_along_fault(output_csv)
 plot_uplift_rates_along_fault_slopes(output_csv, output_uplift_csv, output_gps_csv, gps_csv_filt)
 #plot_drainage_density_along_fault(output_dd_csv, output_uplift_csv, output_gps_csv)
 #plot_uplift_rates_along_fault_clusters(output_csv, output_uplift_csv)
