@@ -266,6 +266,12 @@ def get_orthogonal_coefficients(pts):
 
     return coeffs
 
+def get_shapely_lines(pts):
+    """
+    For a list of shapely points, get the lines between each point
+    and save the parameters of the line for the
+    """
+
 def bisection_method(points, coeffs, distances, cluster_csv, output_csv):
     """
     Use a bisectioning method (https://en.wikipedia.org/wiki/Bisection_method)
@@ -323,6 +329,15 @@ def bisection_method(points, coeffs, distances, cluster_csv, output_csv):
     # append the distances to the dataframe
     df['fault_dist'] = fault_dists.values
     #print(df)
+
+    # use the indices to assign whether the points are east or west of the fault
+    # we calculate this based on the equation
+    # dir = (x - x_1)(y_2 - y_1) - (y - y_1)(x_2 - x_1)
+    # if dir < 0 : point is E of line, if dir > 0 : point is W of line
+    dirs = pd.Series([(cluster_x[i] - points[int(q)].x)*(points[int(q+1)].y - points[int(q)].y) - (cluster_y[i] - points[int(q)].y)*(points[int(q+1)].x - points[int(q)].x) for i, q in enumerate(qs)])
+    print(dirs)
+    df['direction'] = dirs.values
+     
 
     df.to_csv(output_csv, index=False)
 
@@ -386,6 +401,80 @@ def process_gps_data(gps_df, threshold_record_length=5, threshold_uplift=5):
     gps_df = gps_df[gps_df['RU(mm/yr)'] > -threshold_uplift]
     return gps_df
 
+def plot_channel_slopes_along_fault(river_csv):
+    """ 
+    Read in a csv file with the channel slopes and plot compared to distance
+    along the fault
+    """
+    # csv with the river profiles
+    river_df = pd.read_csv(river_csv)
+    #remove negative channel slopes
+    river_df = river_df[river_df['slope'] > 0]
+
+    # set up a figure
+    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10,8), sharex=True)
+    ax = ax.ravel()
+    # plot the channel slope data
+    
+    # first, all the slopes east of the fault (direction < 0)
+    east_df = river_df[river_df['direction'] < 0]
+    # then all the slopes west of the fault (direction > 0)
+    west_df = river_df[river_df['direction'] > 0]
+
+    all_dfs = [east_df, west_df]
+    titles = ['East', 'West']
+    colors = ['r', 'b']
+    for i, df in enumerate(all_dfs):
+
+        ax[i].grid(color='0.8', linestyle='--', which='both')
+        ax[i].set_ylim(0,0.7)
+        ax[i].set_title(titles[i])
+        # now group by the fault dist and plot percentages
+        f = {'median' : np.median,
+             'std' : np.std,
+            'q1': q1,
+            'q2': q2}
+        gr = df.groupby(['fault_dist'])['slope'].agg(f).reset_index()
+        #print(gr)
+        ax[i].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.3', mec='0.3', c='0.4', capsize=2, alpha=0.1)
+
+        # rolling median of channel slopes
+        slopes_df = gr.sort_values(by='fault_dist')
+        slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(10).median()
+        ax[i].plot(slopes_df['fault_dist'], slopes_df['slope_rollmedian'], c=colors[i], zorder=100, lw=3, ls='--')
+
+        # find and plot peaks in the rolling median
+        indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.5, min_dist=30))
+        print(indexes)
+        peak_dists = slopes_df['fault_dist'].iloc[indexes]
+        peak_slopes = slopes_df['slope_rollmedian'].iloc[indexes]
+        print("Channel slope peak distances: ", peak_dists.values)
+        ax[i].scatter(peak_dists, peak_slopes, marker="*", c='k', s=100, zorder=200)
+        for j, txt in enumerate(list(peak_dists)):
+            ax[i].annotate(str(int(txt))+' km', (list(peak_dists)[j], list(peak_slopes)[j]+0.05), zorder=300)
+
+        #gr.plot.scatter(x='fault_dist', y='median')
+    plt.ylabel('Median channel slope (m/m)')
+    #ax[0].set_xlim(100,580)
+    #plt.legend(title='Cluster ID', loc='upper right')
+    #plt.show()
+    #gr.to_csv(DataDirectory+threshold_lvl+fname_prefix+'_channel_slope_fault_dist.csv')
+
+    # placenames
+    labels_df = pd.read_csv(labels_csv)
+    labels = labels_df['Label']
+    labels_dist = labels_df['fault_dist']
+    for i in range(0, len(labels)):
+        ax[0].annotate(labels[i], xy=(labels_dist[i],0.72), xytext=(labels_dist[i], 0.8), ha='center', fontsize=10, arrowprops=dict(facecolor='k', arrowstyle="->"))
+
+    plt.xlim(100,1100)
+    #plt.ylim(0,0.4)
+    plt.xlabel('Distance along fault (km)')
+
+    # save the figure
+    plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_SO{}.png'.format(stream_order), dpi=300)
+    plt.clf()
+ 
 def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv, gps_csv_filt):
     """
     Read in a csv file with slip rates along the fault and plot
@@ -881,7 +970,7 @@ output_shapefile='SanAndreasPoints.shp'
 # channel profiles
 
 cluster_csv = DataDirectory+threshold_lvl+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order)
-output_csv=DataDirectory+threshold_lvl+fname_prefix+'_profiles_fault_dist_S0{}.csv'.format(stream_order)
+output_csv=DataDirectory+threshold_lvl+fname_prefix+'_profiles_fault_dist_SO{}.csv'.format(stream_order)
 # check if the fault dist csv already exists
 if not os.path.isfile(output_csv):
     points, distances = get_points_along_line(n=512)
@@ -941,8 +1030,9 @@ if not os.path.isfile(output_slip_csv):
 labels_csv='/raid/fclubb/san_andreas/Uplift_rates/placenames.csv'
 get_distance_along_fault_from_points(labels_csv, labels_csv)
 
+plot_channel_slopes_along_fault(output_csv)
 #plot_stream_length_along_fault(output_csv)
-plot_uplift_rates_along_fault_slopes(output_csv, output_uplift_csv, output_gps_csv, gps_csv_filt)
+#plot_uplift_rates_along_fault_slopes(output_csv, output_uplift_csv, output_gps_csv, gps_csv_filt)
 #plot_drainage_density_along_fault(output_dd_csv, output_uplift_csv, output_gps_csv)
 #plot_uplift_rates_along_fault_clusters(output_csv, output_uplift_csv)
 #plot_dominant_cluster_along_fault_with_uplift_rate(output_csv, output_uplift_csv)
