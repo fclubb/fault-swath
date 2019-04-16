@@ -6,6 +6,7 @@
 import matplotlib
 matplotlib.use('Agg')
 
+# general modules
 import numpy as np
 import pandas as pd
 import math
@@ -15,12 +16,14 @@ import time
 from matplotlib import rcParams
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
+
 # shapefiles
 from fiona import collection
 from shapely.geometry import shape, LineString, mapping
 from shapely.geometry import Point as shapelyPoint
 import pyproj as pyproj
 from geopy.distance import distance as GeoPyDist
+
 # peak detection
 import peakutils
 from peakutils.plot import plot as pplot
@@ -366,31 +369,6 @@ def q1(x):
 def q2(x):
     return x.quantile(0.75)
 
-def plot_channel_slope_along_fault(csv):
-    """
-    Plot the median channel slope vs. distance along the fault
-    """
-
-    df = pd.read_csv(csv)
-    #remove negative channel slopes
-    df = df[df['slope'] > 0]
-
-    # now group by the fault dist and plot percentages
-    f = {'median' : np.median,
-         'std' : np.std,
-         'q1': q1,
-         'q2': q2}
-    gr = df.groupby(['fault_dist'])['slope'].agg(f).reset_index()
-    print(gr)
-    plt.errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=5, marker='D', mfc='r', mec='k', c='0.5', capsize=2)
-    #gr.plot.scatter(x='fault_dist', y='median')
-    plt.xlabel('Distance along fault (km)')
-    plt.ylabel('Median channel slope (m/m)')
-    #plt.legend(title='Cluster ID', loc='upper right')
-    #plt.show()
-    plt.savefig(output_fname, dpi=300)
-    plt.clf()
-
 def process_gps_data(gps_df, threshold_record_length=5, threshold_uplift=5):
     """ 
     Thin the gps data to remove stations with short record lengths and
@@ -412,8 +390,14 @@ def plot_channel_slopes_along_fault(river_csv):
     river_df = river_df[river_df['slope'] > 0]
 
     # set up a figure
-    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10,8), sharex=True)
+    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10,8), sharex=True, sharey=True)
     ax = ax.ravel()
+
+    # make a big subplot to allow sharing of axis labels
+    fig.add_subplot(111, frameon=False)
+    # hide tick and tick label of the big axes
+    plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
+
     # plot the channel slope data
     
     # first, all the slopes east of the fault (direction < 0)
@@ -440,11 +424,99 @@ def plot_channel_slopes_along_fault(river_csv):
 
         # rolling median of channel slopes
         slopes_df = gr.sort_values(by='fault_dist')
-        slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(10).median()
+        slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(5).median()
         ax[i].plot(slopes_df['fault_dist'], slopes_df['slope_rollmedian'], c=colors[i], zorder=100, lw=3, ls='--')
 
         # find and plot peaks in the rolling median
-        indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.5, min_dist=30))
+        indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.35, min_dist=30))
+        print(indexes)
+        peak_dists = slopes_df['fault_dist'].iloc[indexes]
+        peak_slopes = slopes_df['slope_rollmedian'].iloc[indexes]
+        print("Channel slope peak distances: ", peak_dists.values)
+        ax[i].scatter(peak_dists, peak_slopes, marker="*", c='k', s=100, zorder=200)
+        for j, txt in enumerate(list(peak_dists)):
+            ax[i].annotate(str(int(txt))+' km', (list(peak_dists)[j], list(peak_slopes)[j]+0.05), zorder=300)
+
+        #gr.plot.scatter(x='fault_dist', y='median')
+    plt.ylabel('Median channel slope (m/m)')
+    #ax[0].set_xlim(100,580)
+    #plt.legend(title='Cluster ID', loc='upper right')
+    #plt.show()
+    #gr.to_csv(DataDirectory+threshold_lvl+fname_prefix+'_channel_slope_fault_dist.csv')
+
+    # placenames
+    labels_df = pd.read_csv(labels_csv)
+    labels = labels_df['Label']
+    labels_dist = labels_df['fault_dist']
+    for i in range(0, len(labels)):
+        ax[0].annotate(labels[i], xy=(labels_dist[i],0.72), xytext=(labels_dist[i], 0.8), ha='center', fontsize=10, arrowprops=dict(facecolor='k', arrowstyle="->"))
+
+    plt.xlim(100,1100)
+    #plt.ylim(0,0.4)
+    plt.xlabel('Distance along fault (km)')
+
+    # save the figure
+    plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_SO{}.png'.format(stream_order), dpi=300)
+    plt.clf()
+
+def plot_slopes_with_lithology(river_csv, lithology_raster):
+    """
+    Make a plot of the channel slopes with the lithology overlain
+
+    """
+
+    # csv with the river profiles
+    river_df = pd.read_csv(river_csv)
+    #remove negative channel slopes
+    river_df = river_df[river_df['slope'] > 0]
+
+    # set up a figure
+    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10,8), sharex=True, sharey=True)
+    ax = ax.ravel()
+
+    # make a big subplot to allow sharing of axis labels
+    fig.add_subplot(111, frameon=False)
+    # hide tick and tick label of the big axes
+    plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
+
+    # read in the lithology raster and burn the data to the river csv
+    this_raster = IO.ReadRasterArrayBlocks(lithology_raster)
+    EPSG_string = IO.GetUTMEPSG(lithology_raster)
+    NDV, xsize, ysize, GeoT, Projection, DataType = IO.GetGeoInfo(lithology_raster)
+    CellSize,XMin,XMax,YMin,YMax = IO.GetUTMMaxMin(lithology_raster)
+
+    # plot the channel slope data
+    
+    # first, all the slopes east of the fault (direction < 0)
+    east_df = river_df[river_df['direction'] < 0]
+    # then all the slopes west of the fault (direction > 0)
+    west_df = river_df[river_df['direction'] > 0]
+
+    all_dfs = [east_df, west_df]
+    titles = ['East', 'West']
+    colors = ['r', 'b']
+    for i, df in enumerate(all_dfs):
+
+        ax[i].grid(color='0.8', linestyle='--', which='both')
+        ax[i].set_ylim(0,0.7)
+        ax[i].set_title(titles[i])
+
+        # now group by the fault dist and plot percentages
+        f = {'median' : np.median,
+             'std' : np.std,
+            'q1': q1,
+            'q2': q2}
+        gr = df.groupby(['fault_dist'])['slope'].agg(f).reset_index()
+        #print(gr)
+        ax[i].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.3', mec='0.3', c='0.4', capsize=2, alpha=0.1)
+
+        # rolling median of channel slopes
+        slopes_df = gr.sort_values(by='fault_dist')
+        slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(5).median()
+        ax[i].plot(slopes_df['fault_dist'], slopes_df['slope_rollmedian'], c=colors[i], zorder=100, lw=3, ls='--')
+
+        # find and plot peaks in the rolling median
+        indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.35, min_dist=30))
         print(indexes)
         peak_dists = slopes_df['fault_dist'].iloc[indexes]
         peak_slopes = slopes_df['slope_rollmedian'].iloc[indexes]
