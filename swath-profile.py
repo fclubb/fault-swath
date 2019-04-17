@@ -406,13 +406,13 @@ def plot_channel_slopes_along_fault(river_csv):
     west_df = river_df[river_df['direction'] > 0]
 
     all_dfs = [east_df, west_df]
-    titles = ['East', 'West']
+    titles = ['North American Plate', 'Pacific Plate']
     colors = ['r', 'b']
     for i, df in enumerate(all_dfs):
 
         ax[i].grid(color='0.8', linestyle='--', which='both')
         ax[i].set_ylim(0,0.7)
-        ax[i].set_title(titles[i])
+        ax[i].text(0.04,0.85, titles[i], fontsize=12, transform=ax[i].transAxes, bbox=dict(facecolor='white'))
         # now group by the fault dist and plot percentages
         f = {'median' : np.median,
              'std' : np.std,
@@ -435,10 +435,10 @@ def plot_channel_slopes_along_fault(river_csv):
         print("Channel slope peak distances: ", peak_dists.values)
         ax[i].scatter(peak_dists, peak_slopes, marker="*", c='k', s=100, zorder=200)
         for j, txt in enumerate(list(peak_dists)):
-            ax[i].annotate(str(int(txt))+' km', (list(peak_dists)[j], list(peak_slopes)[j]+0.05), zorder=300)
+            ax[i].annotate(str(int(txt))+' km', (list(peak_dists)[j], list(peak_slopes)[j]+0.02), zorder=300)
 
         #gr.plot.scatter(x='fault_dist', y='median')
-    plt.ylabel('Median channel slope (m/m)')
+    plt.ylabel('Median channel slope (m/m)', labelpad=20)
     #ax[0].set_xlim(100,580)
     #plt.legend(title='Cluster ID', loc='upper right')
     #plt.show()
@@ -449,14 +449,14 @@ def plot_channel_slopes_along_fault(river_csv):
     labels = labels_df['Label']
     labels_dist = labels_df['fault_dist']
     for i in range(0, len(labels)):
-        ax[0].annotate(labels[i], xy=(labels_dist[i],0.72), xytext=(labels_dist[i], 0.8), ha='center', fontsize=10, arrowprops=dict(facecolor='k', arrowstyle="->"))
+        ax[0].annotate(labels[i], xy=(labels_dist[i],0.7), xytext=(labels_dist[i], 0.8), ha='center', fontsize=10, arrowprops=dict(facecolor='k', arrowstyle="->"))
 
     plt.xlim(100,1100)
     #plt.ylim(0,0.4)
     plt.xlabel('Distance along fault (km)')
 
     # save the figure
-    plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_SO{}.png'.format(stream_order), dpi=300)
+    plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_EW_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
 
 def plot_slopes_with_lithology(river_csv, lithology_raster):
@@ -464,6 +464,8 @@ def plot_slopes_with_lithology(river_csv, lithology_raster):
     Make a plot of the channel slopes with the lithology overlain
 
     """
+    from LSDPlottingTools import LSDMap_GDALIO as IO
+    from LSDPlottingTools import LSDMap_PointTools as PT
 
     # csv with the river profiles
     river_df = pd.read_csv(river_csv)
@@ -479,11 +481,30 @@ def plot_slopes_with_lithology(river_csv, lithology_raster):
     # hide tick and tick label of the big axes
     plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
 
-    # read in the lithology raster and burn the data to the river csv
+    # read in the lithology raster
     this_raster = IO.ReadRasterArrayBlocks(lithology_raster)
-    EPSG_string = IO.GetUTMEPSG(lithology_raster)
+    EPSG_string='epsg:32610'
     NDV, xsize, ysize, GeoT, Projection, DataType = IO.GetGeoInfo(lithology_raster)
     CellSize,XMin,XMax,YMin,YMax = IO.GetUTMMaxMin(lithology_raster)
+
+    # get the channel slope data as a point data object
+    pts = PT.LSDMap_PointData(river_csv, data_type = 'csv')
+    easting, northing = pts.GetUTMEastingNorthing(EPSG_string = EPSG_string)
+    lith_values = []
+
+    for x, (i,j) in enumerate(zip(northing, easting)):
+	# convert to rows and cols
+        X_coordinate_shifted_origin = j - XMin;
+        Y_coordinate_shifted_origin = i - YMin;
+
+        col_point = int(X_coordinate_shifted_origin/CellSize);
+        row_point = (ysize - 1) - int(round(Y_coordinate_shifted_origin/CellSize));
+        # check for data at this cell
+        lith_values.append(this_raster[row_point][col_point])
+
+    # now append the lithologies to the river dataframe
+    river_df['lithology'] = lith_values
+    print(river_df)
 
     # plot the channel slope data
     
@@ -499,7 +520,7 @@ def plot_slopes_with_lithology(river_csv, lithology_raster):
 
         ax[i].grid(color='0.8', linestyle='--', which='both')
         ax[i].set_ylim(0,0.7)
-        ax[i].set_title(titles[i])
+        ax[i].text(0.04,0.85, titles[i], fontsize=12, transform=ax[i].transAxes, bbox=dict(facecolor='white'))
 
         # now group by the fault dist and plot percentages
         f = {'median' : np.median,
@@ -544,7 +565,7 @@ def plot_slopes_with_lithology(river_csv, lithology_raster):
     plt.xlabel('Distance along fault (km)')
 
     # save the figure
-    plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_SO{}.png'.format(stream_order), dpi=300)
+    plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_lithology_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
  
 def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv, gps_csv_filt):
@@ -598,6 +619,7 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv, gp
     #gr.plot.scatter(x='fault_dist', y='median')
     ax[0].set_ylabel('Median channel slope (m/m)')
     #ax[0].set_xlim(100,580)
+    ax[0].set_ylim(0,0.2)
     #plt.legend(title='Cluster ID', loc='upper right')
     #plt.show()
     gr.to_csv(DataDirectory+threshold_lvl+fname_prefix+'_channel_slope_fault_dist.csv')
@@ -1030,9 +1052,11 @@ def plot_stream_length_along_fault(river_csv):
     plt.savefig(DataDirectory+fname_prefix+'drainage_area_fault_dist.png')
 
 # set the input parameters - will eventually change this to argparse
-DataDirectory='/raid/fclubb/san_andreas/SAF_combined/SAF_only/'
+#DataDirectory='/raid/fclubb/san_andreas/SAF_combined/SAF_only/'
+DataDirectory='/raid/fclubb/san_andreas/USGS_NED_10m/SAF_only_combined/'
 threshold_lvl='threshold_2/'
-fname_prefix='SAF_only'
+#fname_prefix='SAF_only'
+fname_prefix='SAF_combined_10m'
 stream_order = 3
 
 baseline_shapefile='SanAndreasFault.shp'
@@ -1052,22 +1076,22 @@ if not os.path.isfile(output_csv):
 #--------------------------------------------------------------------#
 # junction angles
 
-angles_csv = DataDirectory+fname_prefix+'_JAngles.csv'
-output_angles_csv = DataDirectory+fname_prefix+'_JAngles_dist.csv'
-if not os.path.isfile(output_angles_csv):
-    points, distances = get_points_along_line(n=512)
-    coeffs = get_orthogonal_coefficients(points)
-    bisection_method(points, coeffs, distances, angles_csv, output_angles_csv)
-
-#--------------------------------------------------------------------#
-# drainage density
-
-dd_csv = DataDirectory+fname_prefix+'_DrainageDensity.csv'
-output_dd_csv = DataDirectory+fname_prefix+'_DrainageDensity_dist.csv'
-if not os.path.isfile(output_dd_csv):
-    points, distances = get_points_along_line(n=512)
-    coeffs = get_orthogonal_coefficients(points)
-    bisection_method(points, coeffs, distances, dd_csv, output_dd_csv)
+#angles_csv = DataDirectory+fname_prefix+'_JAngles.csv'
+#output_angles_csv = DataDirectory+fname_prefix+'_JAngles_dist.csv'
+#if not os.path.isfile(output_angles_csv):
+#    points, distances = get_points_along_line(n=512)
+#    coeffs = get_orthogonal_coefficients(points)
+#    bisection_method(points, coeffs, distances, angles_csv, output_angles_csv)
+#
+##--------------------------------------------------------------------#
+## drainage density
+#
+#dd_csv = DataDirectory+fname_prefix+'_DrainageDensity.csv'
+#output_dd_csv = DataDirectory+fname_prefix+'_DrainageDensity_dist.csv'
+#if not os.path.isfile(output_dd_csv):
+#    points, distances = get_points_along_line(n=512)
+#    coeffs = get_orthogonal_coefficients(points)
+#    bisection_method(points, coeffs, distances, dd_csv, output_dd_csv)
 
 #--------------------------------------------------------------------#
 # uplift rates
@@ -1109,3 +1133,7 @@ plot_channel_slopes_along_fault(output_csv)
 #plot_uplift_rates_along_fault_clusters(output_csv, output_uplift_csv)
 #plot_dominant_cluster_along_fault_with_uplift_rate(output_csv, output_uplift_csv)
 #plot_junction_angles_along_fault(output_angles_csv, output_slip_csv, threshold_so=2)
+
+# lithology
+lithology_raster='/raid/fclubb/san_andreas/Lithology/ca_geol_simple_utm.tif'
+plot_slopes_with_lithology(output_csv, lithology_raster)
