@@ -8,6 +8,7 @@ matplotlib.use('Agg')
 
 # general modules
 import numpy as np
+import numpy.ma as ma
 import pandas as pd
 import math
 import matplotlib.pyplot as plt
@@ -425,7 +426,14 @@ def plot_channel_slopes_along_fault(river_csv):
         # rolling median of channel slopes
         slopes_df = gr.sort_values(by='fault_dist')
         slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(5).median()
-        ax[i].plot(slopes_df['fault_dist'], slopes_df['slope_rollmedian'], c=colors[i], zorder=100, lw=3, ls='--')
+
+        # create a mask for gaps in the median slopes
+        these_dists = slopes_df['fault_dist'].values
+        mask_starts = np.where(these_dists-np.roll(these_dists,1) > 10)[0]
+        print(mask_starts)
+        mc = ma.array(slopes_df['slope_rollmedian'].values)
+        mc[mask_starts] = ma.masked  
+        ax[i].plot(slopes_df['fault_dist'], mc, c=colors[i], zorder=100, lw=3, ls='--')
 
         # find and plot peaks in the rolling median
         indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.35, min_dist=30))
@@ -550,8 +558,15 @@ def plot_slopes_with_lithology(river_csv):
         # rolling median of channel slopes
         slopes_df = gr.sort_values(by='fault_dist')
         slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(5).median()
-        ax[i].plot(slopes_df['fault_dist'], slopes_df['slope_rollmedian'], c='k', zorder=100, lw=3, ls='--')
 
+        # create a mask for gaps in the median slopes
+        these_dists = slopes_df['fault_dist'].values
+        mask_starts = np.where(these_dists-np.roll(these_dists,1) > 10)[0]
+        print(mask_starts)
+        mc = ma.array(slopes_df['slope_rollmedian'].values)
+        mc[mask_starts] = ma.masked  
+        ax[i].plot(slopes_df['fault_dist'], mc, c='k', zorder=100, lw=3, ls='--')
+         
         # find and plot peaks in the rolling median
         indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.35, min_dist=30))
         print(indexes)
@@ -607,6 +622,110 @@ def plot_slopes_with_lithology(river_csv):
 
     # save the figure
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_lithology_SO{}.png'.format(stream_order), dpi=300)
+    plt.clf()
+
+def plot_channel_slopes_uniform_lithology(river_csv):
+    """
+    Read in the channel slope csv file and plot the slopes along 
+    the fault separated by lithology
+    """
+    
+    # csv with the river profiles
+    river_df = pd.read_csv(river_csv)
+    #remove negative channel slopes
+    river_df = river_df[river_df['slope'] > 0]
+
+    # set up a figure
+    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10,8), sharex=True, sharey=True)
+    ax = ax.ravel()
+
+    # make a big subplot to allow sharing of axis labels
+    fig.add_subplot(111, frameon=False)
+    # hide tick and tick label of the big axes
+    plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
+
+    
+    # set up the colours for the lithology plotting
+    # index 0 = water/other, index 1 = alluvium, index 2 = sedimentary, index 3 = igneous, index 4 = metamorphic
+    lith_colors = ['lightskyblue', '0.25', 'orange', 'red', '#00AD49']
+    
+    # plot the channel slope data
+
+    # first remove any profiles that drain multiple lithologies
+    uniform = river_df.groupby(['id']).lithology.nunique().eq(1)
+    river_df = river_df[river_df['id'].isin(uniform[uniform].index)]    
+    #print(river_df)
+    
+    # now, get all the slopes east of the fault (direction < 0)
+    east_df = river_df[river_df['direction'] < 0]
+    # then all the slopes west of the fault (direction > 0)
+    west_df = river_df[river_df['direction'] > 0]
+
+    all_dfs = [east_df, west_df]
+    titles = ['North American Plate', 'Pacific Plate']
+    colors = ['r', 'b']
+    for i, df in enumerate(all_dfs):
+
+        ax[i].grid(color='0.8', linestyle='--', which='both')
+        ax[i].set_ylim(0,0.7)
+        ax[i].set_xlim(100,1066)
+        ax[i].text(0.04,0.85, titles[i], fontsize=12, transform=ax[i].transAxes, bbox=dict(facecolor='white'))
+
+        # Loop through each lithology
+        lithologies = df['lithology'].unique()
+        for lith_code in lithologies:
+            if lith_code != 0:
+                # mask for this one lithology
+                this_df = df[df['lithology'] == lith_code]
+                # now group by the fault dist and plot percentages
+                f = {'median' : np.median,
+                     'std' : np.std,
+                    'q1': q1,
+                    'q2': q2}
+                gr = this_df.groupby(['fault_dist'])['slope'].agg(f).reset_index()
+
+                # rolling median of channel slopes
+                slopes_df = gr.sort_values(by='fault_dist')
+                print(slopes_df)
+                slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(5).median()
+
+                # create a mask for gaps in the median slopes
+                these_dists = slopes_df['fault_dist'].values
+                #print(these_dists)
+                #print(np.roll(these_dists,1))
+                mask_starts = np.where(these_dists-np.roll(these_dists,1) > 10)[0]
+                print(mask_starts)
+                mc = ma.array(slopes_df['slope_rollmedian'].values)
+                mc[mask_starts] = ma.masked  
+                #print(slopes_df['slope_rollmedian'])
+                ax[i].plot(slopes_df['fault_dist'], mc, c=lith_colors[int(lith_code)], zorder=100, alpha=0.8, lw=3)
+
+                # find and plot peaks in the rolling median
+                #indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.35, min_dist=30))
+
+                #peak_dists = slopes_df['fault_dist'].iloc[indexes]
+                #peak_slopes = slopes_df['slope_rollmedian'].iloc[indexes]
+                #print("Channel slope peak distances: ", peak_dists.values)
+                #ax[i].scatter(peak_dists, peak_slopes, marker="*", c='k', s=100, zorder=200)
+                #for j, txt in enumerate(list(peak_dists)):
+                    #ax[i].annotate(str(int(txt))+' km', (list(peak_dists)[j], list(peak_slopes)[j]+0.05), zorder=300)
+
+    # labels for final plot
+    plt.ylabel('Median channel slope (m/m)')
+
+    # placenames
+    labels_df = pd.read_csv(labels_csv)
+    labels = labels_df['Label']
+    labels_dist = labels_df['fault_dist']
+    for i in range(0, len(labels)):
+        ax[0].annotate(labels[i], xy=(labels_dist[i],0.72), xytext=(labels_dist[i], 0.8), ha='center', fontsize=10, arrowprops=dict(facecolor='k', arrowstyle="->"))
+
+    plt.xlim(100,1066)
+    #plt.ylim(0,0.4)
+    plt.xlabel('Distance along fault (km)')
+
+    # save the figure
+    plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_uni_lith_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
  
 def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv, gps_csv_filt):
@@ -1181,4 +1300,5 @@ if not os.path.isfile(output_lith_csv):
 #plot_uplift_rates_along_fault_clusters(output_csv, output_uplift_csv)
 #plot_dominant_cluster_along_fault_with_uplift_rate(output_csv, output_uplift_csv)
 #plot_junction_angles_along_fault(output_angles_csv, output_slip_csv, threshold_so=2)
-plot_slopes_with_lithology(output_lith_csv)
+#plot_slopes_with_lithology(output_lith_csv)
+plot_channel_slopes_uniform_lithology(output_lith_csv)
