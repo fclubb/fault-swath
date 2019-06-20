@@ -341,7 +341,7 @@ def bisection_method(points, coeffs, distances, cluster_csv, output_csv):
     dirs = pd.Series([(cluster_x[i] - points[int(q)].x)*(points[int(q+1)].y - points[int(q)].y) - (cluster_y[i] - points[int(q)].y)*(points[int(q+1)].x - points[int(q)].x) for i, q in enumerate(qs)])
     print(dirs)
     df['direction'] = dirs.values
-     
+
 
     df.to_csv(output_csv, index=False)
 
@@ -371,17 +371,17 @@ def q2(x):
     return x.quantile(0.75)
 
 def process_gps_data(gps_df, threshold_record_length=5, threshold_uplift=5):
-    """ 
+    """
     Thin the gps data to remove stations with short record lengths and
     unrealistically high uplift or subsidence rates
     """
-    gps_df = gps_df[gps_df['record_length'] > threshold_record_length]    
+    gps_df = gps_df[gps_df['record_length'] > threshold_record_length]
     gps_df = gps_df[gps_df['RU(mm/yr)'] < threshold_uplift]
     gps_df = gps_df[gps_df['RU(mm/yr)'] > -threshold_uplift]
     return gps_df
 
 def plot_channel_slopes_along_fault(river_csv):
-    """ 
+    """
     Read in a csv file with the channel slopes and plot compared to distance
     along the fault
     """
@@ -400,7 +400,7 @@ def plot_channel_slopes_along_fault(river_csv):
     plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
 
     # plot the channel slope data
-    
+
     # first, all the slopes east of the fault (direction < 0)
     east_df = river_df[river_df['direction'] < 0]
     # then all the slopes west of the fault (direction > 0)
@@ -432,7 +432,7 @@ def plot_channel_slopes_along_fault(river_csv):
         mask_starts = np.where(these_dists-np.roll(these_dists,1) > 10)[0]
         print(mask_starts)
         mc = ma.array(slopes_df['slope_rollmedian'].values)
-        mc[mask_starts] = ma.masked  
+        mc[mask_starts] = ma.masked
         ax[i].plot(slopes_df['fault_dist'], mc, c=colors[i], zorder=100, lw=3, ls='--')
 
         # find and plot peaks in the rolling median
@@ -526,13 +526,13 @@ def plot_slopes_with_lithology(river_csv):
     # hide tick and tick label of the big axes
     plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
 
-    
+
     # set up the colours for the lithology plotting
     # index 0 = water/other, index 1 = alluvium, index 2 = sedimentary, index 3 = igneous, index 4 = metamorphic
     lith_colors = ['lightskyblue', 'gray', 'orange', 'red', '#00AD49']
-    
+
     # plot the channel slope data
-    
+
     # first, all the slopes east of the fault (direction < 0)
     east_df = river_df[river_df['direction'] < 0]
     # then all the slopes west of the fault (direction > 0)
@@ -564,9 +564,9 @@ def plot_slopes_with_lithology(river_csv):
         mask_starts = np.where(these_dists-np.roll(these_dists,1) > 10)[0]
         print(mask_starts)
         mc = ma.array(slopes_df['slope_rollmedian'].values)
-        mc[mask_starts] = ma.masked  
+        mc[mask_starts] = ma.masked
         ax[i].plot(slopes_df['fault_dist'], mc, c='k', zorder=100, lw=3, ls='--')
-         
+
         # find and plot peaks in the rolling median
         indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.35, min_dist=30))
         print(indexes)
@@ -583,7 +583,7 @@ def plot_slopes_with_lithology(river_csv):
         these_liths = list(lith_gr['lithology'])
         these_dists = list(lith_gr['fault_dist'])
         print(these_liths)
-        
+
         # get the indices where the lithology changes
         change_idx = np.where(np.roll(these_liths,1)!=these_liths)[0]
         change_dists = lith_gr['fault_dist'].iloc[change_idx]
@@ -626,10 +626,10 @@ def plot_slopes_with_lithology(river_csv):
 
 def plot_channel_slopes_uniform_lithology(river_csv):
     """
-    Read in the channel slope csv file and plot the slopes along 
+    Read in the channel slope csv file and plot the slopes along
     the fault separated by lithology
     """
-    
+
     # csv with the river profiles
     river_df = pd.read_csv(river_csv)
     #remove negative channel slopes
@@ -644,18 +644,18 @@ def plot_channel_slopes_uniform_lithology(river_csv):
     # hide tick and tick label of the big axes
     plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
 
-    
+
     # set up the colours for the lithology plotting
     # index 0 = water/other, index 1 = alluvium, index 2 = sedimentary, index 3 = igneous, index 4 = metamorphic
     lith_colors = ['lightskyblue', '0.25', 'orange', 'red', '#00AD49']
-    
+
     # plot the channel slope data
 
     # first remove any profiles that drain multiple lithologies
     uniform = river_df.groupby(['id']).lithology.nunique().eq(1)
-    river_df = river_df[river_df['id'].isin(uniform[uniform].index)]    
+    river_df = river_df[river_df['id'].isin(uniform[uniform].index)]
     #print(river_df)
-    
+
     # now, get all the slopes east of the fault (direction < 0)
     east_df = river_df[river_df['direction'] < 0]
     # then all the slopes west of the fault (direction > 0)
@@ -696,7 +696,7 @@ def plot_channel_slopes_uniform_lithology(river_csv):
                 mask_starts = np.where(these_dists-np.roll(these_dists,1) > 10)[0]
                 print(mask_starts)
                 mc = ma.array(slopes_df['slope_rollmedian'].values)
-                mc[mask_starts] = ma.masked  
+                mc[mask_starts] = ma.masked
                 #print(slopes_df['slope_rollmedian'])
                 ax[i].plot(slopes_df['fault_dist'], mc, c=lith_colors[int(lith_code)], zorder=100, alpha=0.8, lw=3)
 
@@ -727,7 +727,7 @@ def plot_channel_slopes_uniform_lithology(river_csv):
     # save the figure
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_uni_lith_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
- 
+
 def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv, gps_csv_filt):
     """
     Read in a csv file with slip rates along the fault and plot
@@ -797,7 +797,7 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv, gp
     sizes = np.log(1/sr_df['fault_normal_dist']*100)*10
     for i in range(len(sizes)):
         if sizes[i] < 1:
-            sizes[i] = 2 
+            sizes[i] = 2
     ax[1].grid(color='0.8', linestyle='--', which='both')
     ax[1].scatter(x=aft_df['fault_dist'], y=aft_df['RU(mm/yr)'], s=sizes, marker='D', c= '0.4', edgecolors='0.2', zorder=10, alpha=0.3, label='AFT')
     ax[1].scatter(x=ahe_df['fault_dist'], y=ahe_df['RU(mm/yr)'], s=sizes, marker='s', c= '0.4', edgecolors='0.2', zorder=10, alpha=0.3, label='AHe')
@@ -836,11 +836,11 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv, gp
     print("SIZES:", sizes)
     for i in range(len(sizes)):
         if sizes[i] < 1:
-            sizes[i] = 2 
+            sizes[i] = 2
     #ax[2].scatter(x=gps_df['fault_dist'], y=gps_df['RU(mm/yr)'], s=sizes, marker='D', c='0.4', alpha=0.3, edgecolors='0.2', zorder=10)
     ax[2].errorbar(x=gps_df['fault_dist'], y=gps_df['RU(mm/yr)'], yerr=gps_df['RU_uc'], fmt='o',ms=4, marker='D', mfc='0.3', mec='0.3', c='0.4', capsize=2, alpha=0.2)
 
-    
+
     # rolling median of gps uplift rates
     sorted_df = gps_df.sort_values(by='fault_dist')
     sorted_df['rollmedian'] = sorted_df['RU(mm/yr)'].rolling(10).median()
@@ -1141,7 +1141,7 @@ def plot_drainage_density_along_fault(dd_csv, uplift_rate_csv, gps_csv):
     sizes = np.log(1/sr_df['fault_normal_dist']*100)*10
     for i in range(len(sizes)):
         if sizes[i] < 1:
-            sizes[i] = 2 
+            sizes[i] = 2
     ax[1].grid(color='0.8', linestyle='--', which='both')
     ax[1].scatter(x=sr_df['fault_dist'], y=sr_df['RU(mm/yr)'], s=sizes, marker='D', c= '0.4', edgecolors='k', zorder=10)
 
@@ -1167,7 +1167,7 @@ def plot_drainage_density_along_fault(dd_csv, uplift_rate_csv, gps_csv):
     sizes = np.log(1/gps_df['fault_normal_dist'] * 100)*10
     for i in range(len(sizes)):
         if sizes[i] < 1:
-            sizes[i] = 2 
+            sizes[i] = 2
     ax[2].scatter(x=gps_df['fault_dist'], y=gps_df['RU(mm/yr)'], s=sizes, marker='D', c='0.4', edgecolors='k', zorder=10)
 
     # gaussian average of uplift rate to get maxima
@@ -1190,7 +1190,7 @@ def plot_drainage_density_along_fault(dd_csv, uplift_rate_csv, gps_csv):
     plt.clf()
 
 def plot_stream_length_along_fault(river_csv):
-    """ 
+    """
     Make a plot of median stream length along the fault to check that
     slopes are not biased by changes in length
     """
@@ -1225,13 +1225,13 @@ output_shapefile='SanAndreasPoints.shp'
 #--------------------------------------------------------------------#
 # channel profiles
 
-cluster_csv = DataDirectory+threshold_lvl+fname_prefix+'_profiles_clustered_SO{}.csv'.format(stream_order)
-output_csv=DataDirectory+threshold_lvl+fname_prefix+'_profiles_fault_dist_SO{}.csv'.format(stream_order)
+profile_csv = DataDirectory+fname_prefix+'_profiles_SO{}.csv'.format(stream_order)
+output_csv=DataDirectory+fname_prefix+'_profiles_fault_dist_SO{}.csv'.format(stream_order)
 # check if the fault dist csv already exists
 if not os.path.isfile(output_csv):
     points, distances = get_points_along_line(n=512)
     coeffs = get_orthogonal_coefficients(points)
-    bisection_method(points, coeffs, distances, cluster_csv, output_csv)
+    bisection_method(points, coeffs, distances, profile_csv, output_csv)
 
 #--------------------------------------------------------------------#
 # junction angles
@@ -1266,7 +1266,7 @@ if not os.path.isfile(output_uplift_csv):
 
 gps_csv='/raid/fclubb/san_andreas/Uplift_rates/gps/MIDAS_IGS08_SAF_50km.csv'
 output_gps_csv='/raid/fclubb/san_andreas/Uplift_rates/gps/MIDAS_IGS08_SAF_50km_dist.csv'
-# name of csv file for after filtering (removing stations with less than 5 years of data and 
+# name of csv file for after filtering (removing stations with less than 5 years of data and
 # unrealistic uplift/subsidence rates
 gps_csv_filt='/raid/fclubb/san_andreas/Uplift_rates/gps/MIDAS_IGS08_SAF_50km_dist_filt.csv'
 if not os.path.isfile(output_gps_csv):
@@ -1289,7 +1289,7 @@ get_distance_along_fault_from_points(labels_csv, labels_csv)
 #--------------------------------------------------------------------#
 # lithology
 lithology_raster='/raid/fclubb/san_andreas/Lithology/ca_geol_simple_utm.tif'
-output_lith_csv = DataDirectory+threshold_lvl+fname_prefix+'_profiles_lithology_SO{}.csv'.format(stream_order)
+output_lith_csv = DataDirectory+fname_prefix+'_profiles_lithology_SO{}.csv'.format(stream_order)
 if not os.path.isfile(output_lith_csv):
     burn_lithology_to_river_df(output_csv, output_lith_csv, lithology_raster)
 
