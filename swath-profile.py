@@ -467,6 +467,87 @@ def plot_channel_slopes_along_fault(river_csv):
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_EW_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
 
+def plot_hillslopes_along_fault(hillslope_csv):
+    """
+    Read in a csv file with the hillslopes and plot compared to distance
+    along the fault
+    """
+    # csv with the river profiles
+    df = pd.read_csv(hillslope_csv)
+    #remove negative channel slopes
+    df = df[df['slope'] > 0]
+
+    # set up a figure
+    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10,8), sharex=True, sharey=True)
+    ax = ax.ravel()
+
+    # make a big subplot to allow sharing of axis labels
+    fig.add_subplot(111, frameon=False)
+    # hide tick and tick label of the big axes
+    plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
+
+    # plot the channel slope data
+
+    # first, all the slopes east of the fault (direction < 0)
+    east_df = df[df['direction'] < 0]
+    # then all the slopes west of the fault (direction > 0)
+    west_df = df[df['direction'] > 0]
+
+    all_dfs = [east_df, west_df]
+    titles = ['North American Plate', 'Pacific Plate']
+    colors = ['r', 'b']
+    for i, df in enumerate(all_dfs):
+
+        ax[i].grid(color='0.8', linestyle='--', which='both')
+        ax[i].set_ylim(0,0.7)
+        ax[i].text(0.04,0.85, titles[i], fontsize=12, transform=ax[i].transAxes, bbox=dict(facecolor='white'))
+        #print(gr)
+        ax[i].errorbar(x=df['fault_dist'], y=df['slope_median'], yerr=[df['slope_median']-gr['slope_16th'], gr['slope_84th']-gr['slope_median']], fmt='o',ms=4, marker='D', mfc='0.3', mec='0.3', c='0.4', capsize=2, alpha=0.1)
+
+        # rolling median of channel slopes
+        slopes_df = df.sort_values(by='fault_dist')
+        slopes_df['slope_rollmedian'] = slopes_df['slope_median'].rolling(5).median()
+
+        # create a mask for gaps in the median slopes
+        these_dists = slopes_df['fault_dist'].values
+        mask_starts = np.where(these_dists-np.roll(these_dists,1) > 10)[0]
+        print(mask_starts)
+        mc = ma.array(slopes_df['slope_rollmedian'].values)
+        mc[mask_starts] = ma.masked
+        ax[i].plot(slopes_df['fault_dist'], mc, c=colors[i], zorder=100, lw=3, ls='--')
+
+        # find and plot peaks in the rolling median
+        indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.35, min_dist=30))
+        print(indexes)
+        peak_dists = slopes_df['fault_dist'].iloc[indexes]
+        peak_slopes = slopes_df['slope_rollmedian'].iloc[indexes]
+        print("Hillslope peak distances: ", peak_dists.values)
+        ax[i].scatter(peak_dists, peak_slopes, marker="*", c='k', s=100, zorder=200)
+        for j, txt in enumerate(list(peak_dists)):
+            ax[i].annotate(str(int(txt))+' km', (list(peak_dists)[j], list(peak_slopes)[j]+0.02), zorder=300)
+
+        #gr.plot.scatter(x='fault_dist', y='median')
+    plt.ylabel('Median hillslope gradient (m/m)', labelpad=20)
+    #ax[0].set_xlim(100,580)
+    #plt.legend(title='Cluster ID', loc='upper right')
+    #plt.show()
+    #gr.to_csv(DataDirectory+threshold_lvl+fname_prefix+'_channel_slope_fault_dist.csv')
+
+    # placenames
+    labels_df = pd.read_csv(labels_csv)
+    labels = labels_df['Label']
+    labels_dist = labels_df['fault_dist']
+    for i in range(0, len(labels)):
+        ax[0].annotate(labels[i], xy=(labels_dist[i],0.7), xytext=(labels_dist[i], 0.8), ha='center', fontsize=10, arrowprops=dict(facecolor='k', arrowstyle="->"))
+
+    plt.xlim(100,1100)
+    #plt.ylim(0,0.4)
+    plt.xlabel('Distance along fault (km)')
+
+    # save the figure
+    plt.savefig(DataDirectory+fname_prefix+'_fault_dist_hillslopes_EW_SO{}.png'.format(stream_order), dpi=300)
+    plt.clf()
+
 def burn_lithology_to_river_df(river_csv, output_csv, lithology_raster):
     """
     read in the csv file with the river profiles and burn the corresponding
@@ -1293,6 +1374,13 @@ output_lith_csv = DataDirectory+fname_prefix+'_profiles_lithology_SO{}.csv'.form
 if not os.path.isfile(output_lith_csv):
     burn_lithology_to_river_df(output_csv, output_lith_csv, lithology_raster)
 
+#-------------------------------------------------------------------#
+# hillslopes
+hillslope_csv='/raid/fclubb/san_andreas/SAF_combined/SAF_only/SAF_only_hillslopes_SO3.csv'
+output_hillslope_csv='/raid/fclubb/san_andreas/SAF_combined/SAF_only/SAF_only_hillslopes_SO3_dist.csv'
+if not os.path.isfile(output_hillslope_csv):
+    get_distance_along_fault_from_points(hillslope_csv, output_hillslope_csv)
+
 #plot_channel_slopes_along_fault(output_csv)
 #plot_stream_length_along_fault(output_csv)
 #plot_uplift_rates_along_fault_slopes(output_csv, output_uplift_csv, output_gps_csv, gps_csv_filt)
@@ -1302,3 +1390,4 @@ if not os.path.isfile(output_lith_csv):
 #plot_junction_angles_along_fault(output_angles_csv, output_slip_csv, threshold_so=2)
 #plot_slopes_with_lithology(output_lith_csv)
 plot_channel_slopes_uniform_lithology(output_lith_csv)
+plot_hillslopes_along_fault(output_hillslope_csv)
