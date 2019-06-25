@@ -345,6 +345,22 @@ def bisection_method(points, coeffs, distances, cluster_csv, output_csv):
 
     df.to_csv(output_csv, index=False)
 
+def get_median_slope_in_basins(df):
+    """
+    Function to get the median slope in each basin and return a new dataframe
+    with the median and percentiles of the slope, plus latitude and longitude of the
+    basin outlet
+    """
+
+    f = {'median' : np.median,
+         'std' : np.std,
+        'q1': q1,
+        'q2': q2}
+    gr = df.groupby(['basin_id'])['slope'].agg(f).reset_index()
+    print(gr)
+
+    return gr
+
 def plot_cluster_stats_along_fault(csv):
     """
     Once you have ran the bisection method then you can read in the csv file
@@ -415,13 +431,16 @@ def plot_channel_slopes_along_fault(river_csv):
         ax[i].set_ylim(0,0.7)
         ax[i].text(0.04,0.85, titles[i], fontsize=12, transform=ax[i].transAxes, bbox=dict(facecolor='white'))
         # now group by the fault dist and plot percentages
-        f = {'median' : np.median,
-             'std' : np.std,
-            'q1': q1,
-            'q2': q2}
-        gr = df.groupby(['fault_dist'])['slope'].agg(f).reset_index()
-        #print(gr)
-        ax[i].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.3', mec='0.3', c='0.4', capsize=2, alpha=0.1)
+        # f = {'median' : np.median,
+        #      'std' : np.std,
+        #     'q1': q1,
+        #     'q2': q2}
+        # gr = df.groupby(['fault_dist'])['slope'].agg(f).reset_index()
+        # #print(gr)
+        # ax[i].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.3', mec='0.3', c='0.4', capsize=2, alpha=0.1)
+
+        # get median in each basin and plot
+        gr = get_median_slope_in_basins(df)
 
         # rolling median of channel slopes
         slopes_df = gr.sort_values(by='fault_dist')
