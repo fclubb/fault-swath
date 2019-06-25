@@ -352,14 +352,19 @@ def get_median_slope_in_basins(df):
     basin outlet
     """
 
-    f = {'median' : np.median,
-         'std' : np.std,
-        'q1': q1,
-        'q2': q2}
+    f = {'slope_median' : np.median,
+         'slope_std' : np.std,
+        'slope_q1': q1,
+        'slope_q2': q2}
     gr = df.groupby(['basin_id'])['slope'].agg(f).reset_index()
-    print(gr)
 
-    return gr
+    # now get the lat, long, and fault distance of the outlet
+    u = df.groupby('basin_id')['distance_from_outlet'].idxmax()
+    dist_df = df.loc[u, ['basin_id','latitude', 'longitude', 'fault_dist']].reset_index(drop=1)
+    df_merge = pd.merge(gr, dist_df, on='basin_id')
+    print(df_merge)
+
+    return df_merge
 
 def plot_cluster_stats_along_fault(csv):
     """
@@ -430,21 +435,23 @@ def plot_channel_slopes_along_fault(river_csv):
         ax[i].grid(color='0.8', linestyle='--', which='both')
         ax[i].set_ylim(0,0.7)
         ax[i].text(0.04,0.85, titles[i], fontsize=12, transform=ax[i].transAxes, bbox=dict(facecolor='white'))
-        # now group by the fault dist and plot percentages
-        # f = {'median' : np.median,
-        #      'std' : np.std,
-        #     'q1': q1,
-        #     'q2': q2}
-        # gr = df.groupby(['fault_dist'])['slope'].agg(f).reset_index()
-        # #print(gr)
-        # ax[i].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.3', mec='0.3', c='0.4', capsize=2, alpha=0.1)
 
-        # get median in each basin and plot
-        gr = get_median_slope_in_basins(df)
+        slope_df = get_median_slope_in_basins(df)
+
+        # now group by the fault dist and plot percentages
+        f = {'median' : np.median,
+             'std' : np.std,
+             'q1': q1,
+             'q2': q2}
+        gr = slope_df.groupby(['fault_dist'])['slope_median'].agg(f).reset_index()
+        # #print(gr)
+
+        # plot the medians
+        ax[i].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.4', mec='0.4', c='0.4', capsize=2, alpha=0.1)
 
         # rolling median of channel slopes
         slopes_df = gr.sort_values(by='fault_dist')
-        slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(5).median()
+        slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(10).median()
 
         # create a mask for gaps in the median slopes
         these_dists = slopes_df['fault_dist'].values
@@ -455,14 +462,18 @@ def plot_channel_slopes_along_fault(river_csv):
         ax[i].plot(slopes_df['fault_dist'], mc, c=colors[i], zorder=100, lw=3, ls='--')
 
         # find and plot peaks in the rolling median
-        indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.35, min_dist=30))
+        indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.35, min_dist=50))
         print(indexes)
         peak_dists = slopes_df['fault_dist'].iloc[indexes]
         peak_slopes = slopes_df['slope_rollmedian'].iloc[indexes]
-        print("Channel slope peak distances: ", peak_dists.values)
+        #peak_dists = these_dists[indexes]
+        #peak_slopes = mc[indexes]
+        print(peak_dists)
+        print(peak_slopes)
+        #print("Channel slope peak distances: ", peak_dists.values)
         ax[i].scatter(peak_dists, peak_slopes, marker="*", c='k', s=100, zorder=200)
         for j, txt in enumerate(list(peak_dists)):
-            ax[i].annotate(str(int(txt))+' km', (list(peak_dists)[j], list(peak_slopes)[j]+0.02), zorder=300)
+            ax[i].annotate(str(int(txt))+' km', (list(peak_dists)[j], list(peak_slopes)[j]+0.05), zorder=300)
 
         #gr.plot.scatter(x='fault_dist', y='median')
     plt.ylabel('Median channel slope (m/m)', labelpad=20)
@@ -521,11 +532,19 @@ def plot_hillslopes_along_fault(hillslope_csv):
         #ax[i].set_ylim(0,0.7)
         ax[i].text(0.04,0.85, titles[i], fontsize=12, transform=ax[i].transAxes, bbox=dict(facecolor='white'))
         #print(gr)
-        ax[i].errorbar(x=df['fault_dist'], y=df['slope_median'], yerr=[df['slope_median']-df['slope_16th'], df['slope_84th']-df['slope_median']], fmt='o',ms=4, marker='D', mfc='0.3', mec='0.3', c='0.4', capsize=2, alpha=0.1)
+
+        # now group by the fault dist and plot percentages
+        f = {'median' : np.median,
+             'std' : np.std,
+             'q1': q1,
+             'q2': q2}
+        gr = df.groupby(['fault_dist'])['slope_median'].agg(f).reset_index()
+
+        ax[i].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.4', mec='0.4', c='0.4', capsize=2, alpha=0.1)
 
         # rolling median of channel slopes
         slopes_df = df.sort_values(by='fault_dist')
-        slopes_df['slope_rollmedian'] = slopes_df['slope_median'].rolling(20).median()
+        slopes_df['slope_rollmedian'] = slopes_df['slope_median'].rolling(50).median()
 
         # create a mask for gaps in the median slopes
         these_dists = slopes_df['fault_dist'].values
@@ -536,7 +555,7 @@ def plot_hillslopes_along_fault(hillslope_csv):
         ax[i].plot(slopes_df['fault_dist'], mc, c=colors[i], zorder=100, lw=3, ls='--')
 
         # find and plot peaks in the rolling median
-        indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.8, min_dist=200))
+        indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.7, min_dist=1000))
         print(indexes)
         peak_dists = slopes_df['fault_dist'].iloc[indexes]
         peak_slopes = slopes_df['slope_rollmedian'].iloc[indexes]
@@ -1402,7 +1421,7 @@ if not os.path.isfile(output_hillslope_csv):
     coeffs = get_orthogonal_coefficients(points)
     bisection_method(points, coeffs, distances, hillslope_csv, output_hillslope_csv)
 
-#plot_channel_slopes_along_fault(output_csv)
+plot_channel_slopes_along_fault(output_csv)
 #plot_stream_length_along_fault(output_csv)
 #plot_uplift_rates_along_fault_slopes(output_csv, output_uplift_csv, output_gps_csv, gps_csv_filt)
 #plot_drainage_density_along_fault(output_dd_csv, output_uplift_csv, output_gps_csv)
