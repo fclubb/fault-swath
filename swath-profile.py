@@ -475,7 +475,7 @@ def plot_hillslopes_along_fault(hillslope_csv):
     # csv with the river profiles
     df = pd.read_csv(hillslope_csv)
     #remove negative channel slopes
-    df = df[df['slope'] > 0]
+    df = df[df['slope_median'] > 0]
 
     # set up a figure
     fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10,8), sharex=True, sharey=True)
@@ -499,14 +499,14 @@ def plot_hillslopes_along_fault(hillslope_csv):
     for i, df in enumerate(all_dfs):
 
         ax[i].grid(color='0.8', linestyle='--', which='both')
-        ax[i].set_ylim(0,0.7)
+        #ax[i].set_ylim(0,0.7)
         ax[i].text(0.04,0.85, titles[i], fontsize=12, transform=ax[i].transAxes, bbox=dict(facecolor='white'))
         #print(gr)
-        ax[i].errorbar(x=df['fault_dist'], y=df['slope_median'], yerr=[df['slope_median']-gr['slope_16th'], gr['slope_84th']-gr['slope_median']], fmt='o',ms=4, marker='D', mfc='0.3', mec='0.3', c='0.4', capsize=2, alpha=0.1)
+        ax[i].errorbar(x=df['fault_dist'], y=df['slope_median'], yerr=[df['slope_median']-df['slope_16th'], df['slope_84th']-df['slope_median']], fmt='o',ms=4, marker='D', mfc='0.3', mec='0.3', c='0.4', capsize=2, alpha=0.1)
 
         # rolling median of channel slopes
         slopes_df = df.sort_values(by='fault_dist')
-        slopes_df['slope_rollmedian'] = slopes_df['slope_median'].rolling(5).median()
+        slopes_df['slope_rollmedian'] = slopes_df['slope_median'].rolling(20).median()
 
         # create a mask for gaps in the median slopes
         these_dists = slopes_df['fault_dist'].values
@@ -517,7 +517,7 @@ def plot_hillslopes_along_fault(hillslope_csv):
         ax[i].plot(slopes_df['fault_dist'], mc, c=colors[i], zorder=100, lw=3, ls='--')
 
         # find and plot peaks in the rolling median
-        indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.35, min_dist=30))
+        indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.8, min_dist=200))
         print(indexes)
         peak_dists = slopes_df['fault_dist'].iloc[indexes]
         peak_slopes = slopes_df['slope_rollmedian'].iloc[indexes]
@@ -1379,7 +1379,9 @@ if not os.path.isfile(output_lith_csv):
 hillslope_csv='/raid/fclubb/san_andreas/SAF_combined/SAF_only/SAF_only_hillslopes_SO3.csv'
 output_hillslope_csv='/raid/fclubb/san_andreas/SAF_combined/SAF_only/SAF_only_hillslopes_SO3_dist.csv'
 if not os.path.isfile(output_hillslope_csv):
-    get_distance_along_fault_from_points(hillslope_csv, output_hillslope_csv)
+    points, distances = get_points_along_line(n=512)
+    coeffs = get_orthogonal_coefficients(points)
+    bisection_method(points, coeffs, distances, hillslope_csv, output_hillslope_csv)
 
 #plot_channel_slopes_along_fault(output_csv)
 #plot_stream_length_along_fault(output_csv)
@@ -1389,5 +1391,5 @@ if not os.path.isfile(output_hillslope_csv):
 #plot_dominant_cluster_along_fault_with_uplift_rate(output_csv, output_uplift_csv)
 #plot_junction_angles_along_fault(output_angles_csv, output_slip_csv, threshold_so=2)
 #plot_slopes_with_lithology(output_lith_csv)
-plot_channel_slopes_uniform_lithology(output_lith_csv)
+#plot_channel_slopes_uniform_lithology(output_lith_csv)
 plot_hillslopes_along_fault(output_hillslope_csv)
