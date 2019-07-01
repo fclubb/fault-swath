@@ -90,7 +90,7 @@ def gaussian_weighted_average(x, y, power=100., lenscale=3):
     return new_y
 
 
-def get_points_along_line(n=1024):
+def get_points_along_line(n=1024, DataDirectory, baseline_shapefile):
     """
     Interpolate a series of points at equal distances along an input line shapefile. Arguments that need to be supplied are:
     * DataDirectory: the directory of the input/output shapefiles
