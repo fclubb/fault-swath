@@ -124,6 +124,14 @@ if __name__ == '__main__':
             get_distance_along_fault_from_points(gps_csv, output_gps_csv)
 
     # ADD INSAR
+    if args.insar:
+        # channel slopes vs horizontal slip rate
+        slip_rate_csv = '/raid/fclubb/san_andreas/Slip_rates/Tong_2013_InSAR.csv'
+        output_sr_csv = '/raid/fclubb/san_andreas/Slip_rates/Tong_2013_InSAR_fault_dist.csv'
+        if not os.path.isfile(output_sr_csv):
+            get_distance_along_fault_from_points(slip_rate_csv, output_sr_csv)
+        swath.plot_channel_slopes_along_fault_slip_rate(output_csv, output_sr_csv)
+
 
     # lithology
     if args.lithology:
