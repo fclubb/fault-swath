@@ -91,11 +91,11 @@ if __name__ == '__main__':
 
     # labels
     labels_csv='/raid/fclubb/san_andreas/Uplift_rates/placenames.csv'
-    swath.get_distance_along_fault_from_points(labels_csv, labels_csv)
+    swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, labels_csv, labels_csv)
 
     # channel slope plotting
     if args.channels:
-        swath.plot_channel_slopes_along_fault(output_csv)
+        swath.plot_channel_slopes_along_fault(DataDirectory, fname_prefix, args.stream_order, output_csv, labels_csv)
 
     # hillslope plotting
     if args.hillslopes:
@@ -114,14 +114,14 @@ if __name__ == '__main__':
         uplift_rate_csv='/raid/fclubb/san_andreas/Uplift_rates/Spotila_2007.csv'
         output_uplift_csv='/raid/fclubb/san_andreas/Uplift_rates/Spotila_2007_dist.csv'
         if not os.path.isfile(output_uplift_csv):
-            swath.get_distance_along_fault_from_points(uplift_rate_csv, output_uplift_csv)
+            swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, uplift_rate_csv, output_uplift_csv)
 
     if args.gps:
         # directories are hard coded at the moment...
         gps_csv='/raid/fclubb/san_andreas/Uplift_rates/gps/MIDAS_IGS08_SAF_50km.csv'
         output_gps_csv='/raid/fclubb/san_andreas/Uplift_rates/gps/MIDAS_IGS08_SAF_50km_dist.csv'
         if not os.path.isfile(output_gps_csv):
-            get_distance_along_fault_from_points(gps_csv, output_gps_csv)
+            get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, gps_csv, output_gps_csv)
 
     # ADD INSAR
     if args.insar:
@@ -129,8 +129,8 @@ if __name__ == '__main__':
         slip_rate_csv = '/raid/fclubb/san_andreas/Slip_rates/Tong_2013_InSAR.csv'
         output_sr_csv = '/raid/fclubb/san_andreas/Slip_rates/Tong_2013_InSAR_fault_dist.csv'
         if not os.path.isfile(output_sr_csv):
-            get_distance_along_fault_from_points(slip_rate_csv, output_sr_csv)
-        swath.plot_channel_slopes_along_fault_slip_rate(output_csv, output_sr_csv)
+            get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, slip_rate_csv, output_sr_csv)
+        swath.plot_channel_slopes_along_fault_slip_rate(DataDirectory, fname_prefix, args.stream_order, output_csv, output_sr_csv, labels_csv)
 
 
     # lithology
