@@ -85,7 +85,7 @@ if __name__ == '__main__':
     output_shapefile='SanAndreasPoints.shp'
     # check if the fault dist csv already exists
     if not os.path.isfile(output_csv):
-        points, distances = swath.get_points_along_line(n=512,DataDirectory,baseline_shapefile)
+        points, distances = swath.get_points_along_line(DataDirectory,baseline_shapefile,output_shapefile,n=512)
         coeffs = swath.get_orthogonal_coefficients(points)
         swath.bisection_method(points, coeffs, distances, profile_csv, output_csv)
 
