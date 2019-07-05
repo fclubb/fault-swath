@@ -136,11 +136,11 @@ if __name__ == '__main__':
     # lithology
     if args.lithology:
         lithology_raster='/raid/fclubb/san_andreas/Lithology/ca_geol_simple_utm.tif'
-        output_lith_csv = DataDirectory+fname_prefix+'_profiles_lithology_SO{}.csv'.format(stream_order)
+        output_lith_csv = DataDirectory+fname_prefix+'_profiles_lithology_SO{}.csv'.format(args.stream_order)
         if not os.path.isfile(output_lith_csv):
             swath.burn_lithology_to_river_df(output_csv, output_lith_csv, lithology_raster)
         # plotting
-        plot_channel_slopes_uniform_lithology(output_lith_csv)
-        plot_slopes_with_lithology(output_lith_csv)
+        swath.plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, output_lith_csv, labels_csv, args.stream_order)
+        swath.plot_slopes_with_lithology(DataDirectory, fname_prefix, output_lith_csv, labels_csv, args.stream_order)
 
     print("Done, enjoy your plots!")

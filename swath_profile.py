@@ -732,7 +732,7 @@ def burn_lithology_to_river_df(river_csv, output_csv, lithology_raster):
 
     river_df.to_csv(output_csv, index=False)
 
-def plot_slopes_with_lithology(river_csv):
+def plot_slopes_with_lithology(DataDirectory, fname_prefix, river_csv, labels_csv, stream_order):
     """
     Make a plot of the channel slopes with the lithology overlain
 
@@ -850,7 +850,7 @@ def plot_slopes_with_lithology(river_csv):
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_lithology_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
 
-def plot_channel_slopes_uniform_lithology(river_csv):
+def plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, river_csv, labels_csv, stream_order):
     """
     Read in the channel slope csv file and plot the slopes along
     the fault separated by lithology
