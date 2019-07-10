@@ -515,24 +515,24 @@ def plot_channel_slopes_multiple_SO(DataDirectory, fname_prefix, labels_csv):
     colors = ['r', 'b', 'g', 'orange']
 
     # plot the channel slope data
-    for j, int(so) in enumerate(stream_orders):
-        # csv with the river profiles
-        river_df = pd.read_csv(DataDirectory+fname_prefix+"_profiles_fault_dist_SO{}.csv".format(so))
-        #remove negative channel slopes
-        river_df = river_df[river_df['slope'] > 0]
+    titles = ['North American Plate', 'Pacific Plate']
+    for i, title in enumerate(titles):
+        ax[i].grid(color='0.8', linestyle='--', which='both')
+        ax[i].set_ylim(0,0.7)
+        ax[i].text(0.04,0.85, titles[i], fontsize=12, transform=ax[i].transAxes, bbox=dict(facecolor='white'))
 
-        # first, all the slopes east of the fault (direction < 0)
-        east_df = river_df[river_df['direction'] < 0]
-        # then all the slopes west of the fault (direction > 0)
-        west_df = river_df[river_df['direction'] > 0]
+        for j, so in enumerate(stream_orders):
+            # csv with the river profiles
+            river_df = pd.read_csv(DataDirectory+fname_prefix+"_profiles_fault_dist_SO{}.csv".format(int(so)))
+            #remove negative channel slopes
+            river_df = river_df[river_df['slope'] > 0]
 
-        all_dfs = [east_df, west_df]
-        titles = ['North American Plate', 'Pacific Plate']
-        for i, df in enumerate(all_dfs):
+            # first, all the slopes east of the fault (direction < 0)
+            east_df = river_df[river_df['direction'] < 0]
+            # then all the slopes west of the fault (direction > 0)
+            west_df = river_df[river_df['direction'] > 0]
 
-            ax[i].grid(color='0.8', linestyle='--', which='both')
-            ax[i].set_ylim(0,0.7)
-            ax[i].text(0.04,0.85, titles[i], fontsize=12, transform=ax[i].transAxes, bbox=dict(facecolor='white'))
+            all_dfs = [east_df, west_df]
 
             slope_df = get_median_slope_in_basins(df)
 
