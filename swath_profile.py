@@ -515,7 +515,7 @@ def plot_channel_slopes_multiple_SO(DataDirectory, fname_prefix, labels_csv):
     colors = ['r', 'b', 'g', 'orange']
 
     # plot the channel slope data
-    for j, so in enumerate(stream_orders):
+    for j, int(so) in enumerate(stream_orders):
         # csv with the river profiles
         river_df = pd.read_csv(DataDirectory+fname_prefix+"_profiles_fault_dist_SO{}.csv".format(so))
         #remove negative channel slopes
