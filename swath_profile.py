@@ -728,6 +728,23 @@ def burn_lithology_to_river_df(river_csv, output_csv, lithology_raster):
 
     river_df.to_csv(output_csv, index=False)
 
+def plot_lithology_shapefile(lithology_shp):
+    """
+    Make a simple plot of the shapefile with the same colours as the
+    slope plots
+    """
+    import shapefile as shp  # Requires the pyshp package
+
+    sf = shp.Reader(lithology_shp)
+
+    plt.figure()
+    for shape in sf.shapeRecords():
+        x = [i[0] for i in shape.shape.points[:]]
+        y = [i[1] for i in shape.shape.points[:]]
+        plt.plot(x,y)
+
+    plt.savefig(DataDirectory+'CA_lithology.png', dpi=300)
+
 def plot_slopes_with_lithology(river_csv):
     """
     Make a plot of the channel slopes with the lithology overlain

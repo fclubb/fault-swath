@@ -140,7 +140,8 @@ if __name__ == '__main__':
         if not os.path.isfile(output_lith_csv):
             swath.burn_lithology_to_river_df(output_csv, output_lith_csv, lithology_raster)
         # plotting
-        plot_channel_slopes_uniform_lithology(output_lith_csv)
-        plot_slopes_with_lithology(output_lith_csv)
+        plot_lithology_shapefile(DataDirectory,lithology_shp)
+        plot_channel_slopes_uniform_lithology(DataDirectory,fname_prefix,output_lith_csv)
+        plot_slopes_with_lithology(DataDirectory,fname_prefix,output_lith_csv)
 
     print("Done, enjoy your plots!")
