@@ -52,6 +52,7 @@ if __name__ == '__main__':
     parser.add_argument("-insar", "--insar", type=bool, default=False, help="If this is true I'll make plots of the channel slopes vs. InSAR data")
     parser.add_argument("-lith", "--lithology", type=bool, default=False, help="If this is true I'll make plots of the channel slopes separated by lithology")
     parser.add_argument("-hs", "--hillslopes", type=bool, default=False, help="If this is true I'll make plots of hillslope gradient vs. distance")
+    parser.add_argument("-multiple_so", "--multiple_so", type=bool, default=False, help="If this is true I'll plot all the stream orders")
 
     args = parser.parse_args()
 
@@ -144,5 +145,8 @@ if __name__ == '__main__':
         swath.plot_lithology_shapefile(DataDirectory,lithology_shp,baseline_shapefile)
         swath.plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, output_lith_csv, labels_csv, args.stream_order)
         #swath.plot_slopes_with_lithology(DataDirectory, fname_prefix, output_lith_csv, labels_csv, args.stream_order)
+
+    if args.multiple_so:
+        swath.plot_channel_slopes_multiple_SO(DataDirectory,fname_prefix,labels_csv)
 
     print("Done, enjoy your plots!")
