@@ -90,7 +90,7 @@ def gaussian_weighted_average(x, y, power=100., lenscale=3):
     return new_y
 
 
-def get_points_along_line(n=1024, DataDirectory, baseline_shapefile):
+def get_points_along_line(DataDirectory, baseline_shapefile, output_shapefile, n=1024):
     """
     Interpolate a series of points at equal distances along an input line shapefile. Arguments that need to be supplied are:
     * DataDirectory: the directory of the input/output shapefiles
@@ -142,7 +142,7 @@ def get_points_along_line(n=1024, DataDirectory, baseline_shapefile):
 
     return points, distances
 
-def get_distance_along_fault_from_points(pts_csv, output_pts_csv):
+def get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, pts_csv, output_pts_csv):
     """
     Find the distance along the fault shapefile from a DataFrame
     with lat/long coordinates
@@ -401,7 +401,7 @@ def process_gps_data(gps_df, threshold_record_length=5, threshold_uplift=5):
     gps_df = gps_df[gps_df['RU(mm/yr)'] > -threshold_uplift]
     return gps_df
 
-def plot_channel_slopes_along_fault(river_csv):
+def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, river_csv, labels_csv):
     """
     Read in a csv file with the channel slopes and plot compared to distance
     along the fault
@@ -497,7 +497,7 @@ def plot_channel_slopes_along_fault(river_csv):
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_EW_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
 
-def plot_channel_slopes_along_fault_slip_rate(river_csv, slip_rate_csv):
+def plot_channel_slopes_along_fault_slip_rate(DataDirectory, fname_prefix, stream_order, river_csv, slip_rate_csv, labels_csv):
     """
     Read in a csv file with the channel slopes and plot compared to distance
     along the fault
@@ -511,7 +511,7 @@ def plot_channel_slopes_along_fault_slip_rate(river_csv, slip_rate_csv):
     slip_df = pd.read_csv(slip_rate_csv)
 
     # set up a figure
-    fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(12,8), sharex=True, sharey=True)
+    fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(10,12), sharex=True, sharey=False)
     ax = ax.ravel()
 
     # make a big subplot to allow sharing of axis labels
@@ -575,6 +575,7 @@ def plot_channel_slopes_along_fault_slip_rate(river_csv, slip_rate_csv):
         for j, txt in enumerate(list(peak_dists)):
             ax[i].annotate(str(int(txt))+' km', (list(peak_dists)[j], list(peak_slopes)[j]+0.05), zorder=300)
 
+        ax[i].axvspan(360, 580, facecolor='0.5', alpha=0.6)
         #gr.plot.scatter(x='fault_dist', y='median')
     #ax[0].set_xlim(100,580)
     #plt.legend(title='Cluster ID', loc='upper right')
@@ -589,10 +590,13 @@ def plot_channel_slopes_along_fault_slip_rate(river_csv, slip_rate_csv):
         ax[0].annotate(labels[i], xy=(labels_dist[i],0.7), xytext=(labels_dist[i], 0.8), ha='center', fontsize=10, arrowprops=dict(facecolor='k', arrowstyle="->"))
 
     # plot the slip rates
-    ax[2].errorbar(x=slip_df['fault_dist'], y=slip_df['slip_rate'], yerr=slip_df['slip_rate_u'], fmt='o',ms=10, marker='D', mfc='0.8', mec=k, c=k, capsize=4)
+    ax[2].grid(color='0.8', linestyle='--', which='both')
+    ax[2].axvspan(360, 580, facecolor='0.5', alpha=0.6)
+    ax[2].errorbar(x=slip_df['fault_dist'], y=slip_df['slip_rate'], yerr=slip_df['slip_rate_u'], fmt='o',ms=8, marker='D', mfc='0.3', mec='k', c='k', capsize=4)
     ax[2].set_ylabel('Right lateral slip rate (mm/yr)', labelpad=10)
+    #ax[2].set_ylim(0, slip_df['slip_rate'].max()+0.1)
 
-    plt.xlim(100,1100)
+    ax[2].set_xlim(100,1100)
     #plt.ylim(0,0.4)
     plt.xlabel('Distance along fault (km)')
 
@@ -745,7 +749,7 @@ def plot_lithology_shapefile(lithology_shp):
 
     plt.savefig(DataDirectory+'CA_lithology.png', dpi=300)
 
-def plot_slopes_with_lithology(river_csv):
+def plot_slopes_with_lithology(DataDirectory, fname_prefix, river_csv, labels_csv, stream_order):
     """
     Make a plot of the channel slopes with the lithology overlain
 
@@ -863,7 +867,7 @@ def plot_slopes_with_lithology(river_csv):
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_lithology_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
 
-def plot_channel_slopes_uniform_lithology(river_csv):
+def plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, river_csv, labels_csv, stream_order):
     """
     Read in the channel slope csv file and plot the slopes along
     the fault separated by lithology
