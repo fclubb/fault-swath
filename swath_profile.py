@@ -732,20 +732,26 @@ def burn_lithology_to_river_df(river_csv, output_csv, lithology_raster):
 
     river_df.to_csv(output_csv, index=False)
 
-def plot_lithology_shapefile(lithology_shp):
+def plot_lithology_shapefile(DataDirectory,lithology_shp):
     """
     Make a simple plot of the shapefile with the same colours as the
     slope plots
     """
-    import shapefile as shp  # Requires the pyshp package
+    import geopandas as gpd
 
-    sf = shp.Reader(lithology_shp)
+    sf = gpd.read_file(lithology_shp)
+    print(sf.columns)
 
     plt.figure()
-    for shape in sf.shapeRecords():
-        x = [i[0] for i in shape.shape.points[:]]
-        y = [i[1] for i in shape.shape.points[:]]
-        plt.plot(x,y)
+    liths = sf["lith_code"].unique()
+    #liths = np.sort(liths)
+    sorted_liths = np.sort(liths)
+    print(liths)
+    print(sorted_liths)
+    lith_colors = ['lightskyblue', 'gray', 'orange', 'red', '#00AD49']
+    for i, l in enumerate(liths):
+        this_df = sf[sf["lith_code"] == l]
+        this_df.plot(color=lith_colors[i])
 
     plt.savefig(DataDirectory+'CA_lithology.png', dpi=300)
 

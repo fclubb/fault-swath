@@ -136,7 +136,7 @@ if __name__ == '__main__':
     # lithology
     if args.lithology:
         lithology_raster='/raid/fclubb/san_andreas/Lithology/ca_geol_simple_utm.tif'
-        lithology_shapefile='/raid/fclubb/san_andreas/Lithology/ca_geol_simple_utm.shp'
+        lithology_shp='/raid/fclubb/san_andreas/Lithology/ca_geol_simple_dissolved.shp'
         output_lith_csv = DataDirectory+fname_prefix+'_profiles_lithology_SO{}.csv'.format(args.stream_order)
         if not os.path.isfile(output_lith_csv):
             swath.burn_lithology_to_river_df(output_csv, output_lith_csv, lithology_raster)
