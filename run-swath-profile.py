@@ -46,7 +46,7 @@ if __name__ == '__main__':
     parser.add_argument("-so", "--stream_order", type=int, default=3, help="The stream order of your channel and hillslope profiles. Default = 3")
 
     # Different options for plotting
-    parser.add_argument("-ch", "--channels", type=bool, default=True, help="Plot channel slope vs. distance along the fault")
+    parser.add_argument("-ch", "--channels", type=bool, default=False, help="Plot channel slope vs. distance along the fault")
     parser.add_argument("-tc", "--thermochron", type=bool, default=False, help="If this is true I'll make plots of the channel slopes against uplift rates from thermochron")
     parser.add_argument("-gps", "--gps", type=bool, default=False, help="If this is true I'll make plots of the channel slopes vs. gps data")
     parser.add_argument("-insar", "--insar", type=bool, default=False, help="If this is true I'll make plots of the channel slopes vs. InSAR data")
@@ -141,8 +141,8 @@ if __name__ == '__main__':
         if not os.path.isfile(output_lith_csv):
             swath.burn_lithology_to_river_df(output_csv, output_lith_csv, lithology_raster)
         # plotting
-        swath.plot_lithology_shapefile(DataDirectory,lithology_shp)
+        swath.plot_lithology_shapefile(DataDirectory,lithology_shp,baseline_shapefile)
         swath.plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, output_lith_csv, labels_csv, args.stream_order)
-        swath.plot_slopes_with_lithology(DataDirectory, fname_prefix, output_lith_csv, labels_csv, args.stream_order)
+        #swath.plot_slopes_with_lithology(DataDirectory, fname_prefix, output_lith_csv, labels_csv, args.stream_order)
 
     print("Done, enjoy your plots!")

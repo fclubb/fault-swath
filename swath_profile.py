@@ -732,28 +732,40 @@ def burn_lithology_to_river_df(river_csv, output_csv, lithology_raster):
 
     river_df.to_csv(output_csv, index=False)
 
-def plot_lithology_shapefile(DataDirectory,lithology_shp):
+def plot_lithology_shapefile(DataDirectory,lithology_shp,fault_shp):
     """
     Make a simple plot of the shapefile with the same colours as the
     slope plots
     """
     import geopandas as gpd
+    from matplotlib.colors import LinearSegmentedColormap 
 
     sf = gpd.read_file(lithology_shp)
     print(sf.columns)
 
-    plt.figure()
+    fault = gpd.read_file(DataDirectory+fault_shp)
+
+    # remove coastal areas (lith_code = 0)
+    sf = sf[sf["lith_code"] != 0]
+
     liths = sf["lith_code"].unique()
     #liths = np.sort(liths)
     sorted_liths = np.sort(liths)
     print(liths)
     print(sorted_liths)
-    lith_colors = ['lightskyblue', 'gray', 'orange', 'red', '#00AD49']
-    for i, l in enumerate(liths):
-        this_df = sf[sf["lith_code"] == l]
-        this_df.plot(color=lith_colors[i])
+    lith_colors = ['0.25', 'orange', 'red', '#00AD49']
+    cmap = LinearSegmentedColormap.from_list('mycmap', lith_colors)
+    ax = sf.plot(column="lith_code", cmap=cmap, alpha=0.8, edgecolor='black', lw=0.2)
+    fault.plot(ax=ax,color='k')
+    #for i, l in enumerate(liths):
+     #   print(lith_colors[i])
+     #   this_color = ListedColormap(lith_colors[i])
+     #   this_df = sf[sf["lith_code"] == l]
+     #   this_df.plot(cmap=this_color)
+    ax.axis('off')
 
     plt.savefig(DataDirectory+'CA_lithology.png', dpi=300)
+    plt.clf()
 
 def plot_slopes_with_lithology(DataDirectory, fname_prefix, river_csv, labels_csv, stream_order):
     """
@@ -918,7 +930,7 @@ def plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, river_csv
         ax[i].grid(color='0.8', linestyle='--', which='both')
         ax[i].set_ylim(0,0.7)
         ax[i].set_xlim(100,1066)
-        ax[i].text(0.04,0.85, titles[i], fontsize=12, transform=ax[i].transAxes, bbox=dict(facecolor='white'))
+        ax[i].text(0.04,0.85, titles[i], fontsize=14, transform=ax[i].transAxes, bbox=dict(facecolor='white'))
 
         # Loop through each lithology
         lithologies = df['lithology'].unique()
@@ -960,18 +972,18 @@ def plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, river_csv
                     #ax[i].annotate(str(int(txt))+' km', (list(peak_dists)[j], list(peak_slopes)[j]+0.05), zorder=300)
 
     # labels for final plot
-    plt.ylabel('Median channel slope (m/m)')
+    plt.ylabel('Median channel slope (m/m)', fontsize=16, labelpad=10)
 
     # placenames
     labels_df = pd.read_csv(labels_csv)
     labels = labels_df['Label']
     labels_dist = labels_df['fault_dist']
     for i in range(0, len(labels)):
-        ax[0].annotate(labels[i], xy=(labels_dist[i],0.72), xytext=(labels_dist[i], 0.8), ha='center', fontsize=10, arrowprops=dict(facecolor='k', arrowstyle="->"))
+        ax[0].annotate(labels[i], xy=(labels_dist[i],0.7), xytext=(labels_dist[i], 0.75), ha='center', fontsize=10, arrowprops=dict(facecolor='k', arrowstyle="->"))
 
     plt.xlim(100,1066)
     #plt.ylim(0,0.4)
-    plt.xlabel('Distance along fault (km)')
+    plt.xlabel('Distance along fault (km)', fontsize=16)
 
     # save the figure
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_uni_lith_SO{}.png'.format(stream_order), dpi=300)
