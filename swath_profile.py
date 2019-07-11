@@ -517,10 +517,13 @@ def plot_channel_slopes_multiple_SO(DataDirectory, fname_prefix, labels_csv):
     # plot the channel slope data
     titles = ['North American Plate', 'Pacific Plate']
     for i, title in enumerate(titles):
+
+        # set up each subplot
         ax[i].grid(color='0.8', linestyle='--', which='both')
         ax[i].set_ylim(0,0.7)
         ax[i].text(0.04,0.85, titles[i], fontsize=12, transform=ax[i].transAxes, bbox=dict(facecolor='white'))
 
+        # now add the stream order data
         for j, so in enumerate(stream_orders):
             # csv with the river profiles
             river_df = pd.read_csv(DataDirectory+fname_prefix+"_profiles_fault_dist_SO{}.csv".format(int(so)))
@@ -528,11 +531,11 @@ def plot_channel_slopes_multiple_SO(DataDirectory, fname_prefix, labels_csv):
             river_df = river_df[river_df['slope'] > 0]
 
             # first, all the slopes east of the fault (direction < 0)
-            east_df = river_df[river_df['direction'] < 0]
+            if i == 0:
+                df = river_df[river_df['direction'] < 0]
+            else:
             # then all the slopes west of the fault (direction > 0)
-            west_df = river_df[river_df['direction'] > 0]
-
-            all_dfs = [east_df, west_df]
+                df = river_df[river_df['direction'] > 0]
 
             slope_df = get_median_slope_in_basins(df)
 
