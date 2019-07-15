@@ -503,7 +503,8 @@ def plot_channel_slopes_multiple_SO(DataDirectory, fname_prefix, labels_csv):
     along the fault for multiple stream orders (1-4)
     """
 
-    stream_orders = np.linspace(1,5,1)
+    stream_orders = np.arange(1,5,1)
+    print("STREAM ORDERS:", stream_orders)
     # set up a figure
     fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10,8), sharex=True, sharey=True)
     ax = ax.ravel()
@@ -527,6 +528,8 @@ def plot_channel_slopes_multiple_SO(DataDirectory, fname_prefix, labels_csv):
         for j, so in enumerate(stream_orders):
             # csv with the river profiles
             river_df = pd.read_csv(DataDirectory+fname_prefix+"_profiles_fault_dist_SO{}.csv".format(int(so)))
+            print("This stream order:", so)
+            
             #remove negative channel slopes
             river_df = river_df[river_df['slope'] > 0]
 
@@ -560,7 +563,7 @@ def plot_channel_slopes_multiple_SO(DataDirectory, fname_prefix, labels_csv):
             print(mask_starts)
             mc = ma.array(slopes_df['slope_rollmedian'].values)
             mc[mask_starts] = ma.masked
-            ax[i].plot(slopes_df['fault_dist'], mc, c=colors[j], zorder=100, lw=3, ls='--')
+            ax[i].plot(slopes_df['fault_dist'], mc, c=colors[j], zorder=100, lw=3, label="{}".format(int(so)))
 
             # find and plot peaks in the rolling median
             # indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.35, min_dist=50))
@@ -579,7 +582,7 @@ def plot_channel_slopes_multiple_SO(DataDirectory, fname_prefix, labels_csv):
         #gr.plot.scatter(x='fault_dist', y='median')
     plt.ylabel('Median channel slope (m/m)', labelpad=20)
     #ax[0].set_xlim(100,580)
-    #plt.legend(title='Cluster ID', loc='upper right')
+    ax[0].legend(loc='upper right', title="Stream order")
     #plt.show()
     #gr.to_csv(DataDirectory+threshold_lvl+fname_prefix+'_channel_slope_fault_dist.csv')
 
