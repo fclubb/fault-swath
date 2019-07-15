@@ -428,7 +428,7 @@ def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, r
     west_df = river_df[river_df['direction'] > 0]
 
     all_dfs = [east_df, west_df]
-    titles = ['North American Plate', 'Pacific Plate']
+    titles = ['North American Plate (east of SAF)', 'Pacific Plate (west of SAF)']
     colors = ['r', 'b']
     for i, df in enumerate(all_dfs):
 
@@ -487,7 +487,7 @@ def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, r
     labels = labels_df['Label']
     labels_dist = labels_df['fault_dist']
     for i in range(0, len(labels)):
-        ax[0].annotate(labels[i], xy=(labels_dist[i],0.7), xytext=(labels_dist[i], 0.8), ha='center', fontsize=10, arrowprops=dict(facecolor='k', arrowstyle="->"))
+        ax[0].annotate(labels[i], xy=(labels_dist[i],0.7), xytext=(labels_dist[i], 0.8), ha='center', fontsize=14, arrowprops=dict(facecolor='k', arrowstyle="->"))
 
     plt.xlim(100,1100)
     #plt.ylim(0,0.4)
@@ -1027,7 +1027,7 @@ def plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, river_csv
     west_df = river_df[river_df['direction'] > 0]
 
     all_dfs = [east_df, west_df]
-    titles = ['North American Plate', 'Pacific Plate']
+    titles = ['North American Plate (east of SAF)', 'Pacific Plate (west of SAF)']
     colors = ['r', 'b']
     for i, df in enumerate(all_dfs):
 
@@ -1083,7 +1083,7 @@ def plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, river_csv
     labels = labels_df['Label']
     labels_dist = labels_df['fault_dist']
     for i in range(0, len(labels)):
-        ax[0].annotate(labels[i], xy=(labels_dist[i],0.7), xytext=(labels_dist[i], 0.75), ha='center', fontsize=10, arrowprops=dict(facecolor='k', arrowstyle="->"))
+        ax[0].annotate(labels[i], xy=(labels_dist[i],0.7), xytext=(labels_dist[i], 0.75), ha='center', fontsize=14, arrowprops=dict(facecolor='k', arrowstyle="->"))
 
     plt.xlim(100,1066)
     #plt.ylim(0,0.4)
@@ -1575,6 +1575,8 @@ def plot_stream_length_along_fault(river_csv):
     plt.xlabel('Distance along fault (km)')
     plt.ylabel('Max drainage area (km$^2$)')
     plt.savefig(DataDirectory+fname_prefix+'drainage_area_fault_dist.png')
+
+def plot_prism_along_fault()
 
 if __name__ == '__main__':
 
