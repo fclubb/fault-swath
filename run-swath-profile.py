@@ -142,9 +142,9 @@ if __name__ == '__main__':
         if not os.path.isfile(output_lith_csv):
             swath.burn_lithology_to_river_df(output_csv, output_lith_csv, lithology_raster)
         # plotting
-        swath.plot_lithology_shapefile(DataDirectory,lithology_shp,baseline_shapefile)
-        swath.plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, output_lith_csv, labels_csv, args.stream_order)
-        #swath.plot_slopes_with_lithology(DataDirectory, fname_prefix, output_lith_csv, labels_csv, args.stream_order)
+        #swath.plot_lithology_shapefile(DataDirectory,lithology_shp,baseline_shapefile)
+        #swath.plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, output_lith_csv, labels_csv, args.stream_order)
+        swath.plot_lithology_deltas(DataDirectory, fname_prefix, output_lith_csv, labels_csv, args.stream_order)
 
     if args.multiple_so:
         swath.plot_channel_slopes_multiple_SO(DataDirectory,fname_prefix,labels_csv)
