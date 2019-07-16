@@ -24,6 +24,7 @@ from shapely.geometry import shape, LineString, mapping
 from shapely.geometry import Point as shapelyPoint
 import pyproj as pyproj
 from geopy.distance import distance as GeoPyDist
+import geopandas as gpd
 
 # peak detection
 import peakutils
@@ -841,7 +842,6 @@ def plot_lithology_shapefile(DataDirectory,lithology_shp,fault_shp):
     Make a simple plot of the shapefile with the same colours as the
     slope plots
     """
-    import geopandas as gpd
     from matplotlib.colors import LinearSegmentedColormap
 
     sf = gpd.read_file(lithology_shp)
@@ -1576,7 +1576,21 @@ def plot_stream_length_along_fault(river_csv):
     plt.ylabel('Max drainage area (km$^2$)')
     plt.savefig(DataDirectory+fname_prefix+'drainage_area_fault_dist.png')
 
-#def plot_prism_along_fault()
+def plot_prism_along_fault(prism_raster,fault_points):
+    """
+    Script to plot PRISM data along the fault. This just reads in the points
+    spaced evenly along the fault and samples the underlying raster at each point.
+    """
+    from raster
+
+    # read in the prism datar
+    this_raster = IO.ReadRasterArrayBlocks(lithology_raster)
+    EPSG_string='epsg:32610'
+    NDV, xsize, ysize, GeoT, Projection, DataType = IO.GetGeoInfo(lithology_raster)
+    CellSize,XMin,XMax,YMin,YMax = IO.GetUTMMaxMin(lithology_raster)
+
+    # now read in the points
+    df = gpd.read_file(fault_points)
 
 if __name__ == '__main__':
 
