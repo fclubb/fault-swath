@@ -24,7 +24,6 @@ from shapely.geometry import shape, LineString, mapping
 from shapely.geometry import Point as shapelyPoint
 import pyproj as pyproj
 from geopy.distance import distance as GeoPyDist
-from geopy import bearing
 import geopandas as gpd
 
 # peak detection
@@ -37,6 +36,11 @@ label_size = 12
 #rcParams['font.sans-serif'] = ['arial']
 rcParams['font.size'] = label_size
 plt.rc('axes', titlesize=10)     # fontsize of the axes title
+
+def azimuth(point1, point2):
+    '''azimuth between 2 shapely points (interval 0 - 180°, for my work)'''
+    angle = math.atan2(point2.x - point1.x, point2.y - point1.y)
+    return math.degrees(angle)if angle>0 else math.degrees(angle) + 180
 
 def find_nearest_index(array, value):
     array = np.asarray(array)
@@ -129,7 +133,7 @@ def get_points_along_line(DataDirectory, baseline_shapefile, output_shapefile, n
             #print(list(point.coords))
             # find the distance between this point and the previous point in metres (vicenty)
             temp_metric = GeoPyDist((point.y, point.x), (points[-1].y, points[-1].x)).km
-            temp_azimuth = bearing((point.y, point.x), (points[-1].y, points[-1].x))
+            temp_azimuth = azimuth(points[-1], point)
         metric_dist+=temp_metric
         #print(metric_dist)
         temp_dist+=dist
