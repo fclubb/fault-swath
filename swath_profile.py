@@ -24,6 +24,7 @@ from shapely.geometry import shape, LineString, mapping
 from shapely.geometry import Point as shapelyPoint
 import pyproj as pyproj
 from geopy.distance import distance as GeoPyDist
+from geopy import bearing
 import geopandas as gpd
 
 # peak detection
@@ -102,6 +103,7 @@ def get_points_along_line(DataDirectory, baseline_shapefile, output_shapefile, n
 
     points = []
     distances = []
+    azimuths = []
     # read in the baseline shapefile
     c = collection(DataDirectory+baseline_shapefile, 'r')
     rec = c.next()
@@ -116,30 +118,34 @@ def get_points_along_line(DataDirectory, baseline_shapefile, output_shapefile, n
     print("The total distance is", total_distance, ": returning ", n, "points at a spacing of ", dist)
     temp_dist=0
     metric_dist=0
+    temp_azimuth=np.nan
     # have a point at the start of the line
     for j in range(n+1):
         point = line_rvs.interpolate(temp_dist)
         if j == 0:
             temp_metric = 0
+            temp_azimuth = np.nan
         else:
             #print(list(point.coords))
             # find the distance between this point and the previous point in metres (vicenty)
             temp_metric = GeoPyDist((point.y, point.x), (points[-1].y, points[-1].x)).km
+            temp_azimuth = bearing((point.y, point.x), (points[-1].y, points[-1].x))
         metric_dist+=temp_metric
         #print(metric_dist)
         temp_dist+=dist
         points.append(shapelyPoint(point))
         distances.append(metric_dist)
+        azimuths.append(temp_azimuth)
 
 
     #output schema
-    schema={'geometry': 'Point', 'properties': {'distance': 'float', 'id': 'int'} }
+    schema={'geometry': 'Point', 'properties': {'distance': 'float', 'id': 'int', 'azimuth': 'float'} }
 
     # write the points to a shapefile
     with collection(DataDirectory+output_shapefile, 'w', crs=crs, driver='ESRI Shapefile', schema=schema) as output:
         for i in range (n+1):
             #print point
-            output.write({'properties':{'distance':distances[i], 'id':i },'geometry': mapping(points[i])})
+            output.write({'properties':{'distance':distances[i], 'id':i, 'azimuth':azimuths[i]},'geometry': mapping(points[i])})
 
     return points, distances
 
@@ -270,12 +276,6 @@ def get_orthogonal_coefficients(pts):
         coeffs.append([_*N(l2.coefficients[0]), _*N(l2.coefficients[1]), _*N(l2.coefficients[2])])
 
     return coeffs
-
-def get_shapely_lines(pts):
-    """
-    For a list of shapely points, get the lines between each point
-    and save the parameters of the line for the
-    """
 
 def bisection_method(points, coeffs, distances, cluster_csv, output_csv):
     """
@@ -1723,6 +1723,7 @@ if __name__ == '__main__':
 
     baseline_shapefile='SanAndreasFault.shp'
     output_shapefile='SanAndreasPoints.shp'
+    points, distances = get_points_along_line(DataDirectory, baseline_shapefile, output_shapefile, n=512)
 
     #--------------------------------------------------------------------#
     # channel profiles
