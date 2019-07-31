@@ -713,6 +713,111 @@ def plot_channel_slopes_along_fault_slip_rate(DataDirectory, fname_prefix, strea
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_slip_rate_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
 
+def plot_channel_slopes_along_fault_azimuths(DataDirectory, fname_prefix, stream_order, river_csv, labels_csv, fault_points):
+    """
+    Read in a csv file with the channel slopes and plot compared to distance
+    along the fault and the azimuth of the fault strike
+    """
+    # csv with the river profiles
+    river_df = pd.read_csv(river_csv)
+    #remove negative channel slopes
+    river_df = river_df[river_df['slope'] > 0]
+
+    # slip rate csv
+    slip_df = pd.read_csv(slip_rate_csv)
+
+    # set up a figure
+    fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(10,12), sharex=True, sharey=False)
+    ax = ax.ravel()
+
+    # make a big subplot to allow sharing of axis labels
+    fig.add_subplot(111, frameon=False)
+    # hide tick and tick label of the big axes
+    plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
+
+    # plot the channel slope data
+
+    # first, all the slopes east of the fault (direction < 0)
+    east_df = river_df[river_df['direction'] < 0]
+    # then all the slopes west of the fault (direction > 0)
+    west_df = river_df[river_df['direction'] > 0]
+
+    all_dfs = [east_df, west_df]
+    titles = ['North American Plate (east of SAF)', 'Pacific Plate (west of SAF)']
+    colors = ['r', 'b']
+    for i, df in enumerate(all_dfs):
+
+        ax[i].grid(color='0.8', linestyle='--', which='both')
+        ax[i].set_ylim(0,0.7)
+        ax[i].text(0.04,0.85, titles[i], fontsize=14, transform=ax[i].transAxes, bbox=dict(facecolor='white'))
+        ax[i].set_ylabel('Median channel slope (m/m)', labelpad=10, fontsize=14)
+
+        slope_df = get_median_slope_in_basins(df)
+
+        # now group by the fault dist and plot percentages
+        f = {'median' : np.median,
+             'std' : np.std,
+             'q1': q1,
+             'q2': q2}
+        gr = slope_df.groupby(['fault_dist'])['slope_median'].agg(f).reset_index()
+        # #print(gr)
+
+        # plot the medians
+        ax[i].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.4', mec='0.4', c='0.4', capsize=2, alpha=0.1)
+
+        # rolling median of channel slopes
+        slopes_df = gr.sort_values(by='fault_dist')
+        slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(10).median()
+
+        # create a mask for gaps in the median slopes
+        these_dists = slopes_df['fault_dist'].values
+        mask_starts = np.where(these_dists-np.roll(these_dists,1) > 10)[0]
+        print(mask_starts)
+        mc = ma.array(slopes_df['slope_rollmedian'].values)
+        mc[mask_starts] = ma.masked
+        ax[i].plot(slopes_df['fault_dist'], mc, c=colors[i], zorder=100, lw=3, ls='--')
+
+        # find and plot peaks in the rolling median
+        indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.35, min_dist=50))
+        print(indexes)
+        peak_dists = slopes_df['fault_dist'].iloc[indexes]
+        peak_slopes = slopes_df['slope_rollmedian'].iloc[indexes]
+        #peak_dists = these_dists[indexes]
+        #peak_slopes = mc[indexes]
+        print(peak_dists)
+        print(peak_slopes)
+        #print("Channel slope peak distances: ", peak_dists.values)
+        ax[i].scatter(peak_dists, peak_slopes, marker="*", c='k', s=100, zorder=200)
+        for j, txt in enumerate(list(peak_dists)):
+            ax[i].annotate(str(int(txt))+' km', (list(peak_dists)[j], list(peak_slopes)[j]+0.05), zorder=300)
+
+        ax[i].axvspan(360, 580, facecolor='0.5', alpha=0.6)
+        #gr.plot.scatter(x='fault_dist', y='median')
+    #ax[0].set_xlim(100,580)
+    #plt.legend(title='Cluster ID', loc='upper right')
+    #plt.show()
+    #gr.to_csv(DataDirectory+threshold_lvl+fname_prefix+'_channel_slope_fault_dist.csv')
+
+    # placenames
+    labels_df = pd.read_csv(labels_csv)
+    labels = labels_df['Label']
+    labels_dist = labels_df['fault_dist']
+    for i in range(0, len(labels)):
+        ax[0].annotate(labels[i], xy=(labels_dist[i],0.7), xytext=(labels_dist[i], 0.8), ha='center', fontsize=14, arrowprops=dict(facecolor='k', arrowstyle="->"))
+
+    # plot the azimuths
+    pts = gpd.read_file(lithology_shp)
+    ax[2].plot(pts['distance'], pts['azimuth'])
+    ax[2].set_ylabel('Strike azimuth ($^\circ$)')
+
+    ax[2].set_xlim(100,1100)
+    #plt.ylim(0,0.4)
+    plt.xlabel('Distance along fault (km)', fontsize=14)
+
+    # save the figure
+    plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_azimuth_SO{}.png'.format(stream_order), dpi=300)
+    plt.clf()
+
 def plot_hillslopes_along_fault(hillslope_csv):
     """
     Read in a csv file with the hillslopes and plot compared to distance

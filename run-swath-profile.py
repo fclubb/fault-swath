@@ -99,6 +99,7 @@ if __name__ == '__main__':
     # channel slope plotting
     if args.channels:
         swath.plot_channel_slopes_along_fault(DataDirectory, fname_prefix, args.stream_order, output_csv, labels_csv)
+        swath.plot_channel_slopes_along_fault_azimuths(DataDirectory, fname_prefix, args.stream_order, output_csv, labels_csv, output_shapefile)
 
     # hillslope plotting
     if args.hillslopes:
@@ -147,7 +148,7 @@ if __name__ == '__main__':
         #swath.plot_lithology_shapefile(DataDirectory,lithology_shp,baseline_shapefile)
         swath.plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, output_lith_csv, labels_csv, args.stream_order)
         #swath.plot_lithology_deltas(DataDirectory, fname_prefix, output_lith_csv, labels_csv, args.stream_order)
-    
+
     # multiple stream orders
     if args.multiple_so:
         swath.plot_channel_slopes_multiple_SO(DataDirectory,fname_prefix,labels_csv)
