@@ -53,6 +53,7 @@ if __name__ == '__main__':
     parser.add_argument("-lith", "--lithology", type=bool, default=False, help="If this is true I'll make plots of the channel slopes separated by lithology")
     parser.add_argument("-hs", "--hillslopes", type=bool, default=False, help="If this is true I'll make plots of hillslope gradient vs. distance")
     parser.add_argument("-multiple_so", "--multiple_so", type=bool, default=False, help="If this is true I'll plot all the stream orders")
+    parser.add_argument("-prism", "--prism", type=bool, default=False, help="If this is true I'll plot prism data along the fault")
 
     args = parser.parse_args()
 
@@ -143,10 +144,16 @@ if __name__ == '__main__':
             swath.burn_lithology_to_river_df(output_csv, output_lith_csv, lithology_raster)
         # plotting
         #swath.plot_lithology_shapefile(DataDirectory,lithology_shp,baseline_shapefile)
-        #swath.plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, output_lith_csv, labels_csv, args.stream_order)
-        swath.plot_lithology_deltas(DataDirectory, fname_prefix, output_lith_csv, labels_csv, args.stream_order)
-
+        swath.plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, output_lith_csv, labels_csv, args.stream_order)
+        #swath.plot_lithology_deltas(DataDirectory, fname_prefix, output_lith_csv, labels_csv, args.stream_order)
+    
+    # multiple stream orders
     if args.multiple_so:
         swath.plot_channel_slopes_multiple_SO(DataDirectory,fname_prefix,labels_csv)
+
+    # prism data
+    if args.prism:
+        prism_raster='/raid/fclubb/san_andreas/Climate_data/PRISM/PRISM_ppt_30yr_normal_4kmM2_annual_bil.bil'
+        swath.plot_prism_along_fault(DataDirectory,prism_raster, output_shapefile)
 
     print("Done, enjoy your plots!")

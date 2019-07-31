@@ -632,14 +632,14 @@ def plot_channel_slopes_along_fault_slip_rate(DataDirectory, fname_prefix, strea
     west_df = river_df[river_df['direction'] > 0]
 
     all_dfs = [east_df, west_df]
-    titles = ['North American Plate', 'Pacific Plate']
+    titles = ['North American Plate (east of SAF)', 'Pacific Plate (west of SAF)']
     colors = ['r', 'b']
     for i, df in enumerate(all_dfs):
 
         ax[i].grid(color='0.8', linestyle='--', which='both')
         ax[i].set_ylim(0,0.7)
-        ax[i].text(0.04,0.85, titles[i], fontsize=12, transform=ax[i].transAxes, bbox=dict(facecolor='white'))
-        ax[i].set_ylabel('Median channel slope (m/m)', labelpad=10)
+        ax[i].text(0.04,0.85, titles[i], fontsize=14, transform=ax[i].transAxes, bbox=dict(facecolor='white'))
+        ax[i].set_ylabel('Median channel slope (m/m)', labelpad=10, fontsize=14)
 
         slope_df = get_median_slope_in_basins(df)
 
@@ -692,18 +692,18 @@ def plot_channel_slopes_along_fault_slip_rate(DataDirectory, fname_prefix, strea
     labels = labels_df['Label']
     labels_dist = labels_df['fault_dist']
     for i in range(0, len(labels)):
-        ax[0].annotate(labels[i], xy=(labels_dist[i],0.7), xytext=(labels_dist[i], 0.8), ha='center', fontsize=10, arrowprops=dict(facecolor='k', arrowstyle="->"))
+        ax[0].annotate(labels[i], xy=(labels_dist[i],0.7), xytext=(labels_dist[i], 0.8), ha='center', fontsize=14, arrowprops=dict(facecolor='k', arrowstyle="->"))
 
     # plot the slip rates
     ax[2].grid(color='0.8', linestyle='--', which='both')
     ax[2].axvspan(360, 580, facecolor='0.5', alpha=0.6)
     ax[2].errorbar(x=slip_df['fault_dist'], y=slip_df['slip_rate'], yerr=slip_df['slip_rate_u'], fmt='o',ms=8, marker='D', mfc='0.3', mec='k', c='k', capsize=4)
-    ax[2].set_ylabel('Right lateral slip rate (mm/yr)', labelpad=10)
+    ax[2].set_ylabel('Right lateral slip rate (mm/yr)', labelpad=10, fontsize=14)
     #ax[2].set_ylim(0, slip_df['slip_rate'].max()+0.1)
 
     ax[2].set_xlim(100,1100)
     #plt.ylim(0,0.4)
-    plt.xlabel('Distance along fault (km)')
+    plt.xlabel('Distance along fault (km)', fontsize=14)
 
     # save the figure
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_slip_rate_SO{}.png'.format(stream_order), dpi=300)
@@ -989,10 +989,9 @@ def plot_slopes_with_lithology(DataDirectory, fname_prefix, river_csv, labels_cs
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_lithology_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
 
-def plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, river_csv, labels_csv, stream_order):
+def plot_lithology_deltas(DataDirectory, fname_prefix, river_csv, labels_csv, stream_order):
     """
-    Read in the channel slope csv file and plot the slopes along
-    the fault separated by lithology
+    Plot delta of channel slopes for each lithology compared to median
     """
 
     # csv with the river profiles
@@ -1032,7 +1031,7 @@ def plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, river_csv
     for i, df in enumerate(all_dfs):
 
         ax[i].grid(color='0.8', linestyle='--', which='both')
-        ax[i].set_ylim(0,0.7)
+        #ax[i].set_ylim(0,0.7)
         ax[i].set_xlim(100,1066)
         ax[i].text(0.04,0.85, titles[i], fontsize=14, transform=ax[i].transAxes, bbox=dict(facecolor='white'))
 
@@ -1062,9 +1061,9 @@ def plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, river_csv
                 print(slopes_df)
                 slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(5).median()
 
-                delta = slopes_df['slope_rollmedian'] - all_liths['slope_rollmedian']
-                print("DELTA LITH CODE", lith_code)
-                print(delta)
+                slopes_df['delta'] = slopes_df['slope_rollmedian'] - all_liths['slope_rollmedian']
+                #print("DELTA LITH CODE", lith_code)
+                #print(delta)
 
                 # create a mask for gaps in the median slopes
                 these_dists = slopes_df['fault_dist'].values
@@ -1072,7 +1071,7 @@ def plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, river_csv
                 #print(np.roll(these_dists,1))
                 mask_starts = np.where(these_dists-np.roll(these_dists,1) > 10)[0]
                 print(mask_starts)
-                mc = ma.array(slopes_df['slope_rollmedian'].values)
+                mc = ma.array(slopes_df['delta'].values)
                 mc[mask_starts] = ma.masked
                 #print(slopes_df['slope_rollmedian'])
                 ax[i].plot(slopes_df['fault_dist'], mc, c=lith_colors[int(lith_code)], zorder=100, alpha=0.8, lw=3)
@@ -1088,7 +1087,7 @@ def plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, river_csv
                     #ax[i].annotate(str(int(txt))+' km', (list(peak_dists)[j], list(peak_slopes)[j]+0.05), zorder=300)
 
     # labels for final plot
-    plt.ylabel('Median channel slope (m/m)', fontsize=16, labelpad=10)
+    plt.ylabel('$\delta$S', fontsize=16, labelpad=10)
 
     # placenames
     labels_df = pd.read_csv(labels_csv)
@@ -1102,13 +1101,13 @@ def plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, river_csv
     plt.xlabel('Distance along fault (km)', fontsize=16)
 
     # save the figure
-    plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_uni_lith_SO{}.png'.format(stream_order), dpi=300)
+    plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_lith_deltas_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
 
-def plot_lithology_deltas(DataDirectory, fname_prefix, river_csv, labels_csv, stream_order):
+def plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, river_csv, labels_csv, stream_order):
     """
-    Read in the channel slope csv file and plot the difference between the slopes
-    separated by lithology and the median slope for all channels.
+    Read in the channel slope csv file and plot the slopes
+    separated by lithology
     """
 
     # csv with the river profiles
@@ -1179,7 +1178,9 @@ def plot_lithology_deltas(DataDirectory, fname_prefix, river_csv, labels_csv, st
                 mc = ma.array(slopes_df['slope_rollmedian'].values)
                 mc[mask_starts] = ma.masked
                 #print(slopes_df['slope_rollmedian'])
-                ax[i].plot(slopes_df['fault_dist'], mc, c=lith_colors[int(lith_code)], zorder=100, alpha=0.8, lw=3)
+                #ax[i].plot(slopes_df['fault_dist'], mc, c=lith_colors[int(lith_code)], zorder=100, alpha=0.8, lw=1)
+                #if lith_code == 2:
+                ax[i].fill_between(slopes_df['fault_dist'], mc, facecolor=lith_colors[int(lith_code)], zorder=1, alpha=0.5)
 
                 # find and plot peaks in the rolling median
                 #indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.35, min_dist=30))
@@ -1651,7 +1652,7 @@ def plot_drainage_density_along_fault(dd_csv, uplift_rate_csv, gps_csv):
             sizes[i] = 2
     ax[2].scatter(x=gps_df['fault_dist'], y=gps_df['RU(mm/yr)'], s=sizes, marker='D', c='0.4', edgecolors='k', zorder=10)
 
-    # gaussian average of uplift rate to get maxima
+    # gaussiain average of uplift rate to get maxima
     sorted_df_gps = gps_df.sort_values(by='fault_dist')
     uplift_rate_gps = sorted_df_gps['RU(mm/yr)'].values
     dist_gps = sorted_df_gps['fault_dist'].values
@@ -1692,21 +1693,23 @@ def plot_stream_length_along_fault(river_csv):
     plt.ylabel('Max drainage area (km$^2$)')
     plt.savefig(DataDirectory+fname_prefix+'drainage_area_fault_dist.png')
 
-def plot_prism_along_fault(prism_raster,fault_points):
+def plot_prism_along_fault(DataDirectory,prism_raster,fault_points):
     """
     Script to plot PRISM data along the fault. This just reads in the points
     spaced evenly along the fault and samples the underlying raster at each point.
     """
-    #from raster
+    from rasterstats import point_query
 
-    # read in the prism datar
-    this_raster = IO.ReadRasterArrayBlocks(lithology_raster)
-    EPSG_string='epsg:32610'
-    NDV, xsize, ysize, GeoT, Projection, DataType = IO.GetGeoInfo(lithology_raster)
-    CellSize,XMin,XMax,YMin,YMax = IO.GetUTMMaxMin(lithology_raster)
+    gdf = gpd.read_file(DataDirectory+fault_points)
 
-    # now read in the points
-    df = gpd.read_file(fault_points)
+    pts = point_query(gdf, prism_raster)
+    print(pts)
+    plt.plot(gdf['distance'], pts)
+    plt.xlim(100,1100)
+    plt.xlabel('Distance along fault (km)')
+    plt.ylabel('Mean annual precipitation (mm/yr)')
+    plt.savefig(DataDirectory+'PRISM_data.png')
+    plt.clf()
 
 if __name__ == '__main__':
 
