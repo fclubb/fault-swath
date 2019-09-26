@@ -723,9 +723,6 @@ def plot_channel_slopes_along_fault_azimuths(DataDirectory, fname_prefix, stream
     #remove negative channel slopes
     river_df = river_df[river_df['slope'] > 0]
 
-    # slip rate csv
-    slip_df = pd.read_csv(slip_rate_csv)
-
     # set up a figure
     fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(10,12), sharex=True, sharey=False)
     ax = ax.ravel()
@@ -791,7 +788,7 @@ def plot_channel_slopes_along_fault_azimuths(DataDirectory, fname_prefix, stream
         for j, txt in enumerate(list(peak_dists)):
             ax[i].annotate(str(int(txt))+' km', (list(peak_dists)[j], list(peak_slopes)[j]+0.05), zorder=300)
 
-        ax[i].axvspan(360, 580, facecolor='0.5', alpha=0.6)
+        #ax[i].axvspan(360, 580, facecolor='0.5', alpha=0.6)
         #gr.plot.scatter(x='fault_dist', y='median')
     #ax[0].set_xlim(100,580)
     #plt.legend(title='Cluster ID', loc='upper right')
@@ -806,9 +803,18 @@ def plot_channel_slopes_along_fault_azimuths(DataDirectory, fname_prefix, stream
         ax[0].annotate(labels[i], xy=(labels_dist[i],0.7), xytext=(labels_dist[i], 0.8), ha='center', fontsize=14, arrowprops=dict(facecolor='k', arrowstyle="->"))
 
     # plot the azimuths
-    pts = gpd.read_file(lithology_shp)
-    ax[2].plot(pts['distance'], pts['azimuth'])
-    ax[2].set_ylabel('Strike azimuth ($^\circ$)')
+    pts = gpd.read_file(DataDirectory+fault_points)
+
+    # calculate azimuth deltas. Decrease in angle = restraining bend, increase = releasing bend
+    az_deltas = pts['azimuth'].diff()
+    ax[2].plot(pts['distance'], az_deltas, c = 'k', lw = 2)
+    ax[2].set_ylabel('$\Delta$ strike azimuth ($^\circ$)', fontsize=14)
+    ax[2].axhspan(0, 20, alpha=0.4, color='deepskyblue')
+    ax[2].axhspan(-20, 0, alpha=0.4, color='red')
+    ax[2].text(150, -12, 'Restraining (uplift)')
+    ax[2].text(150, 12, 'Releasing (subsidence)')
+    ax[2].set_ylim(-15,15)
+    ax[2].invert_yaxis()
 
     ax[2].set_xlim(100,1100)
     #plt.ylim(0,0.4)
@@ -816,6 +822,60 @@ def plot_channel_slopes_along_fault_azimuths(DataDirectory, fname_prefix, stream
 
     # save the figure
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_azimuth_SO{}.png'.format(stream_order), dpi=300)
+    plt.clf()
+
+def plot_slopes_vs_azimuth(DataDirectory, fname_prefix, stream_order, river_csv, fault_points):
+    """
+    Make a scatter plot of the difference in azimuth along fault vs the channel slope.
+    Positive delta azimuth = releasing bend, negative delta azimuth = restraining bend
+    """
+
+    # csv with the river profiles
+    river_df = pd.read_csv(river_csv)
+    #remove negative channel slopes
+    river_df = river_df[river_df['slope'] > 0]
+
+    # set up a figure
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6,6))
+
+    # get the azimuths
+    pts = gpd.read_file(DataDirectory+fault_points)
+    # print(pts)
+    # calculate azimuth deltas. Decrease in angle = restraining bend, increase = releasing bend
+    pts['az_deltas'] = pts['azimuth'].diff()
+    print(pts)
+
+    # first, all the slopes east of the fault (direction < 0)
+    east_df = river_df[river_df['direction'] < 0]
+    # then all the slopes west of the fault (direction > 0)
+    west_df = river_df[river_df['direction'] > 0]
+    all_dfs = [east_df, west_df]
+    colors = ['r', 'b']
+    for i,df in enumerate(all_dfs):
+        # get the median slopes
+        slope_df = get_median_slope_in_basins(df)
+
+        # now group by the fault dist and plot percentages
+        f = {'median' : np.median,
+             'std' : np.std,
+             'q1': q1,
+             'q2': q2}
+        gr = slope_df.groupby(['fault_dist'])['slope_median'].agg(f).reset_index()
+        print(gr)
+        # round the dataframes so they merge properly
+        gr = gr.round({'fault_dist': 3})
+        pts = pts.round({'distance': 3})
+        new_df = pd.merge(gr, pts, left_on='fault_dist', right_on='distance', how='left')
+        print(new_df)
+        # print(len(az_deltas))
+        # print(len(gr['median']))
+        ax.scatter(new_df['az_deltas'], new_df['median'], c=colors[i])
+
+    ax.set_xlim(-5,5)
+    ax.invert_xaxis()
+    ax.set_xlabel('$\Delta$ strike azimuth ($^\circ$)', fontsize=14)
+    ax.set_ylabel('Median channel gradient (m/m)', fontsize=14)
+    plt.savefig(DataDirectory+fname_prefix+'_slopes_azimuth_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
 
 def plot_hillslopes_along_fault(hillslope_csv):

@@ -85,7 +85,9 @@ if __name__ == '__main__':
     output_csv=DataDirectory+fname_prefix+'_profiles_fault_dist_SO{}.csv'.format(args.stream_order)
     baseline_shapefile='SanAndreasFault.shp'
     output_shapefile='SanAndreasPoints.shp'
-    points, distances = swath.get_points_along_line(DataDirectory,baseline_shapefile,output_shapefile,n=512)
+    # shp for azimuths
+    # az_shapefile='SanAndreasPoints_10km.shp'
+    # points, distances = swath.get_points_along_line(DataDirectory,baseline_shapefile,az_shapefile,n=200)
     # check if the fault dist csv already exists
     if not os.path.isfile(output_csv):
         points, distances = swath.get_points_along_line(DataDirectory,baseline_shapefile,output_shapefile,n=512)
@@ -98,8 +100,9 @@ if __name__ == '__main__':
 
     # channel slope plotting
     if args.channels:
-        swath.plot_channel_slopes_along_fault(DataDirectory, fname_prefix, args.stream_order, output_csv, labels_csv)
-        swath.plot_channel_slopes_along_fault_azimuths(DataDirectory, fname_prefix, args.stream_order, output_csv, labels_csv, output_shapefile)
+    #    swath.plot_channel_slopes_along_fault(DataDirectory, fname_prefix, args.stream_order, output_csv, labels_csv)
+     #    swath.plot_channel_slopes_along_fault_azimuths(DataDirectory, fname_prefix, args.stream_order, output_csv, labels_csv, output_shapefile)
+         swath.plot_slopes_vs_azimuth(DataDirectory, fname_prefix, args.stream_order, output_csv, output_shapefile)
 
     # hillslope plotting
     if args.hillslopes:
