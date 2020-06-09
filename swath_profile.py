@@ -38,9 +38,12 @@ rcParams['font.size'] = label_size
 plt.rc('axes', titlesize=10)     # fontsize of the axes title
 
 def azimuth(point1, point2):
-    '''azimuth between 2 shapely points (interval 0 - 180°, for my work)'''
+    """
+    azimuth between 2 shapely points (interval 0 - 180°, for my work)
+    Only works with increasing X (point 2 must be E of point 1).
+    """
     angle = math.atan2(point2.x - point1.x, point2.y - point1.y)
-    return math.degrees(angle)if angle>0 else math.degrees(angle) + 180
+    return math.degrees(angle)
 
 def find_nearest_index(array, value):
     array = np.asarray(array)
@@ -134,6 +137,7 @@ def get_points_along_line(DataDirectory, baseline_shapefile, output_shapefile, n
             # find the distance between this point and the previous point in metres (vicenty)
             temp_metric = GeoPyDist((point.y, point.x), (points[-1].y, points[-1].x)).km
             temp_azimuth = azimuth(points[-1], point)
+            print(temp_azimuth)
         metric_dist+=temp_metric
         #print(metric_dist)
         temp_dist+=dist
