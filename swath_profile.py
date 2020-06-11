@@ -354,18 +354,19 @@ def bisection_method(points, coeffs, distances, cluster_csv, output_csv):
 
     df.to_csv(output_csv, index=False)
 
+def percentile(n):
+    def percentile_(x):
+        return np.percentile(x, n)
+    percentile_.__name__ = 'percentile_%s' % n
+    return percentile_
+
 def get_median_slope_in_basins(df):
     """
     Function to get the median slope in each basin and return a new dataframe
     with the median and percentiles of the slope, plus latitude and longitude of the
     basin outlet
     """
-
-    f = {'slope_median' : np.median,
-         'slope_std' : np.std,
-        'slope_q1': q1,
-        'slope_q2': q2}
-    gr = df.groupby(['basin_id'])['slope'].agg(f).reset_index()
+    gr = df.groupby(['basin_id'])['slope'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'median': 'slope_median', 'std': 'slope_std', 'percentile_25': 'slope_q1', 'percentile_75': 'slope_q2'}).reset_index()
 
     # now get the lat, long, and fault distance of the outlet
     u = df.groupby('basin_id')['distance_from_outlet'].idxmax()
@@ -448,11 +449,7 @@ def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, r
         slope_df = get_median_slope_in_basins(df)
 
         # now group by the fault dist and plot percentages
-        f = {'median' : np.median,
-             'std' : np.std,
-             'q1': q1,
-             'q2': q2}
-        gr = slope_df.groupby(['fault_dist'])['slope_median'].agg(f).reset_index()
+        gr = slope_df.groupby(['fault_dist'])['slope_median'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
         # #print(gr)
 
         # plot the medians
@@ -552,11 +549,7 @@ def plot_channel_slopes_multiple_SO(DataDirectory, fname_prefix, labels_csv):
             slope_df = get_median_slope_in_basins(df)
 
             # now group by the fault dist and plot percentages
-            f = {'median' : np.median,
-                 'std' : np.std,
-                 'q1': q1,
-                 'q2': q2}
-            gr = slope_df.groupby(['fault_dist'])['slope_median'].agg(f).reset_index()
+            gr = slope_df.groupby(['fault_dist'])['slope_median'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
             # #print(gr)
 
             # plot the medians
@@ -652,11 +645,7 @@ def plot_channel_slopes_along_fault_slip_rate(DataDirectory, fname_prefix, strea
         slope_df = get_median_slope_in_basins(df)
 
         # now group by the fault dist and plot percentages
-        f = {'median' : np.median,
-             'std' : np.std,
-             'q1': q1,
-             'q2': q2}
-        gr = slope_df.groupby(['fault_dist'])['slope_median'].agg(f).reset_index()
+        gr = slope_df.groupby(['fault_dist'])['slope_median'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
         # #print(gr)
 
         # plot the medians
@@ -717,7 +706,7 @@ def plot_channel_slopes_along_fault_slip_rate(DataDirectory, fname_prefix, strea
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_slip_rate_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
 
-def plot_channel_slopes_along_fault_azimuths(DataDirectory, fname_prefix, stream_order, river_csv, labels_csv, fault_points):
+def plot_channel_slopes_along_fault_azimuths(DataDirectory, fname_prefix, stream_order, river_csv, labels_csv, fault_points, plate_azimuth=135):
     """
     Read in a csv file with the channel slopes and plot compared to distance
     along the fault and the azimuth of the fault strike
@@ -756,11 +745,7 @@ def plot_channel_slopes_along_fault_azimuths(DataDirectory, fname_prefix, stream
         slope_df = get_median_slope_in_basins(df)
 
         # now group by the fault dist and plot percentages
-        f = {'median' : np.median,
-             'std' : np.std,
-             'q1': q1,
-             'q2': q2}
-        gr = slope_df.groupby(['fault_dist'])['slope_median'].agg(f).reset_index()
+        gr = slope_df.groupby(['fault_dist'])['slope_median'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
         # #print(gr)
 
         # plot the medians
@@ -810,14 +795,15 @@ def plot_channel_slopes_along_fault_azimuths(DataDirectory, fname_prefix, stream
     pts = gpd.read_file(DataDirectory+fault_points)
 
     # calculate azimuth deltas. Decrease in angle = restraining bend, increase = releasing bend
-    az_deltas = pts['azimuth'].diff()
+    #az_deltas = pts['azimuth'].diff()
+    az_deltas = pts['azimuth'] - plate_azimuth
     ax[2].plot(pts['distance'], az_deltas, c = 'k', lw = 2)
     ax[2].set_ylabel('$\Delta$ strike azimuth ($^\circ$)', fontsize=14)
-    ax[2].axhspan(0, 20, alpha=0.4, color='deepskyblue')
-    ax[2].axhspan(-20, 0, alpha=0.4, color='red')
-    ax[2].text(150, -12, 'Restraining (uplift)')
-    ax[2].text(150, 12, 'Releasing (subsidence)')
-    ax[2].set_ylim(-15,15)
+    ax[2].axhspan(0, 50, alpha=0.4, color='deepskyblue')
+    ax[2].axhspan(-50, 0, alpha=0.4, color='red')
+    ax[2].text(120, -35, 'Restraining (uplift)')
+    ax[2].text(120, 35, 'Releasing (subsidence)')
+    ax[2].set_ylim(-45,45)
     ax[2].invert_yaxis()
 
     ax[2].set_xlim(100,1100)
@@ -828,7 +814,7 @@ def plot_channel_slopes_along_fault_azimuths(DataDirectory, fname_prefix, stream
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_azimuth_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
 
-def plot_slopes_vs_azimuth(DataDirectory, fname_prefix, stream_order, river_csv, fault_points):
+def plot_slopes_vs_azimuth(DataDirectory, fname_prefix, stream_order, river_csv, fault_points, plate_azimuth=135):
     """
     Make a scatter plot of the difference in azimuth along fault vs the channel slope.
     Positive delta azimuth = releasing bend, negative delta azimuth = restraining bend
@@ -838,15 +824,19 @@ def plot_slopes_vs_azimuth(DataDirectory, fname_prefix, stream_order, river_csv,
     river_df = pd.read_csv(river_csv)
     #remove negative channel slopes
     river_df = river_df[river_df['slope'] > 0]
+    print("Got the river csv")
 
     # set up a figure
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6,6))
 
     # get the azimuths
     pts = gpd.read_file(DataDirectory+fault_points)
+    print("got the fault points")
     # print(pts)
     # calculate azimuth deltas. Decrease in angle = restraining bend, increase = releasing bend
-    pts['az_deltas'] = pts['azimuth'].diff()
+    #pts['az_deltas'] = pts['azimuth'].diff()
+    # calculate difference between azimuth and overall plate motion (NW-SE)
+    pts['az_deltas'] = pts['azimuth'] - plate_azimuth
     print(pts)
 
     # first, all the slopes east of the fault (direction < 0)
@@ -860,11 +850,7 @@ def plot_slopes_vs_azimuth(DataDirectory, fname_prefix, stream_order, river_csv,
         slope_df = get_median_slope_in_basins(df)
 
         # now group by the fault dist and plot percentages
-        f = {'median' : np.median,
-             'std' : np.std,
-             'q1': q1,
-             'q2': q2}
-        gr = slope_df.groupby(['fault_dist'])['slope_median'].agg(f).reset_index()
+        gr = slope_df.groupby(['fault_dist'])['slope_median'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
         print(gr)
         # round the dataframes so they merge properly
         gr = gr.round({'fault_dist': 3})
@@ -919,11 +905,7 @@ def plot_hillslopes_along_fault(hillslope_csv):
         #print(gr)
 
         # now group by the fault dist and plot percentages
-        f = {'median' : np.median,
-             'std' : np.std,
-             'q1': q1,
-             'q2': q2}
-        gr = df.groupby(['fault_dist'])['slope_median'].agg(f).reset_index()
+        gr = slope_df.groupby(['fault_dist'])['slope_median'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
 
         ax[i].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.4', mec='0.4', c='0.4', capsize=2, alpha=0.1)
 
@@ -1087,11 +1069,7 @@ def plot_slopes_with_lithology(DataDirectory, fname_prefix, river_csv, labels_cs
         ax[i].text(0.04,0.85, titles[i], fontsize=12, transform=ax[i].transAxes, bbox=dict(facecolor='white'))
 
         # now group by the fault dist and plot percentages
-        f = {'median' : np.median,
-             'std' : np.std,
-            'q1': q1,
-            'q2': q2}
-        gr = df.groupby(['fault_dist'])['slope'].agg(f).reset_index()
+        gr = slope_df.groupby(['fault_dist'])['slope'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
 
         # rolling median of channel slopes
         slopes_df = gr.sort_values(by='fault_dist')
@@ -1209,11 +1187,7 @@ def plot_lithology_deltas(DataDirectory, fname_prefix, river_csv, labels_csv, st
         ax[i].text(0.04,0.85, titles[i], fontsize=14, transform=ax[i].transAxes, bbox=dict(facecolor='white'))
 
         # get the median line for all lithologies
-        f = {'median' : np.median,
-             'std' : np.std,
-            'q1': q1,
-            'q2': q2}
-        gr = df.groupby(['fault_dist'])['slope'].agg(f).reset_index()
+        gr = slope_df.groupby(['fault_dist'])['slope'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
 
         # rolling median of channel slopes
         all_liths = gr.sort_values(by='fault_dist')
@@ -1227,8 +1201,7 @@ def plot_lithology_deltas(DataDirectory, fname_prefix, river_csv, labels_csv, st
                 # mask for this one lithology
                 this_df = df[df['lithology'] == lith_code]
                 # now group by the fault dist and plot percentages
-                gr = this_df.groupby(['fault_dist'])['slope'].agg(f).reset_index()
-
+                gr = this_df.groupby(['fault_dist'])['slope'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
                 # rolling median of channel slopes
                 slopes_df = gr.sort_values(by='fault_dist')
                 print(slopes_df)
@@ -1331,11 +1304,7 @@ def plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, river_csv
                 # mask for this one lithology
                 this_df = df[df['lithology'] == lith_code]
                 # now group by the fault dist and plot percentages
-                f = {'median' : np.median,
-                     'std' : np.std,
-                    'q1': q1,
-                    'q2': q2}
-                gr = this_df.groupby(['fault_dist'])['slope'].agg(f).reset_index()
+                gr = this_df.groupby(['fault_dist'])['slope'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
 
                 # rolling median of channel slopes
                 slopes_df = gr.sort_values(by='fault_dist')
@@ -1407,11 +1376,7 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv, gp
 
     # plot the channel slope data
     # now group by the fault dist and plot percentages
-    f = {'median' : np.median,
-         'std' : np.std,
-         'q1': q1,
-         'q2': q2}
-    gr = river_df.groupby(['fault_dist'])['slope'].agg(f).reset_index()
+    gr = river_df.groupby(['fault_dist'])['slope'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
     #print(gr)
     ax[0].grid(color='0.8', linestyle='--', which='both')
     ax[0].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.3', mec='0.3', c='0.4', capsize=2, alpha=0.1)
@@ -1703,11 +1668,7 @@ def plot_junction_angles_along_fault(junction_angle_csv, slip_rate_csv, threshol
 
     # plot the juncton angle data
     # now group by the fault dist and plot percentages
-    f = {'median' : np.median,
-         'std' : np.std,
-         'q1': q1,
-         'q2': q2}
-    gr = angle_df.groupby(['fault_dist'])['junction_angle'].agg(f).reset_index()
+    gr = angle_df.groupby(['fault_dist'])['junction_angle'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
     print(gr)
     ax[0].grid(color='0.8', linestyle='--', which='both')
     ax[0].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.3', mec='0.3', c='0.4', capsize=2, alpha=0.1)
@@ -1757,11 +1718,7 @@ def plot_drainage_density_along_fault(dd_csv, uplift_rate_csv, gps_csv):
 
     # plot the channel slope data
     # now group by the fault dist and plot percentages
-    #f = {'median' : np.median,
-    #     'std' : np.std,
-    #     'q1': q1,
-    #     'q2': q2}
-    #gr = river_df.groupby(['fault_dist'])['slope'].agg(f).reset_index()
+    #gr = river_df.groupby(['fault_dist'])['slope'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
     #print(gr)
     #ax[0].grid(color='0.8', linestyle='--', which='both')
     #ax[0].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.3', mec='0.3', c='0.4', capsize=2, alpha=0.1)

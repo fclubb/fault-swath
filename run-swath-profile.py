@@ -67,9 +67,9 @@ if __name__ == '__main__':
     if args.base_directory:
         DataDirectory = args.base_directory
         # check if you remembered a / at the end of your path_name
-        if not DataDirectory.endswith("/"):
-            print("You forgot the '/' at the end of the directory, appending...")
-            DataDirectory = DataDirectory+"/"
+        # if not DataDirectory.endswith("/"):
+        #     print("You forgot the '/' at the end of the directory, appending...")
+        #     DataDirectory = DataDirectory+"/"
     else:
         print("WARNING! You haven't supplied the data directory. I'm using the current working directory.")
         DataDirectory = os.getcwd()
@@ -95,14 +95,14 @@ if __name__ == '__main__':
         swath.bisection_method(points, coeffs, distances, profile_csv, output_csv)
 
     # labels
-    labels_csv='/raid/fclubb/san_andreas/Uplift_rates/placenames.csv'
+    labels_csv='Y:\\san_andreas\\Uplift_rates\\placenames.csv'
     swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, labels_csv, labels_csv)
 
     # channel slope plotting
     if args.channels:
     #    swath.plot_channel_slopes_along_fault(DataDirectory, fname_prefix, args.stream_order, output_csv, labels_csv)
-     #    swath.plot_channel_slopes_along_fault_azimuths(DataDirectory, fname_prefix, args.stream_order, output_csv, labels_csv, output_shapefile)
-         swath.plot_slopes_vs_azimuth(DataDirectory, fname_prefix, args.stream_order, output_csv, output_shapefile)
+         swath.plot_channel_slopes_along_fault_azimuths(DataDirectory, fname_prefix, args.stream_order, output_csv, labels_csv, output_shapefile)
+         #swath.plot_slopes_vs_azimuth(DataDirectory, fname_prefix, args.stream_order, output_csv, output_shapefile, plate_azimuth=135)
 
     # hillslope plotting
     if args.hillslopes:
