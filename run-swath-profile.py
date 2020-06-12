@@ -128,16 +128,16 @@ if __name__ == '__main__':
         gps_csv='/raid/fclubb/san_andreas/Uplift_rates/gps/MIDAS_IGS08_SAF_50km.csv'
         output_gps_csv='/raid/fclubb/san_andreas/Uplift_rates/gps/MIDAS_IGS08_SAF_50km_dist.csv'
         if not os.path.isfile(output_gps_csv):
-            get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, gps_csv, output_gps_csv)
+            swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, gps_csv, output_gps_csv)
 
     # ADD INSAR
     if args.insar:
         # channel slopes vs horizontal slip rate
-        slip_rate_csv = '/raid/fclubb/san_andreas/Slip_rates/Tong_2013_InSAR.csv'
-        output_sr_csv = '/raid/fclubb/san_andreas/Slip_rates/Tong_2013_InSAR_fault_dist.csv'
+        slip_rate_csv = 'Y:\\san_andreas\\Slip_rates\\Tong_2013_InSAR.csv'
+        output_sr_csv = 'Y:\\san_andreas\\Slip_rates\\Tong_2013_InSAR_fault_dist.csv'
         if not os.path.isfile(output_sr_csv):
-            get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, slip_rate_csv, output_sr_csv)
-        swath.plot_channel_slopes_along_fault_slip_rate(DataDirectory, fname_prefix, args.stream_order, output_csv, output_sr_csv, labels_csv)
+            swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, slip_rate_csv, output_sr_csv)
+        swath.plot_channel_slopes_along_fault_slip_rate(DataDirectory, fname_prefix, args.stream_order, output_csv, output_sr_csv, labels_csv, output_shapefile)
 
 
     # lithology

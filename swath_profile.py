@@ -603,7 +603,7 @@ def plot_channel_slopes_multiple_SO(DataDirectory, fname_prefix, labels_csv):
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_EW_multiple_SO.png', dpi=300)
     plt.clf()
 
-def plot_channel_slopes_along_fault_slip_rate(DataDirectory, fname_prefix, stream_order, river_csv, slip_rate_csv, labels_csv):
+def plot_channel_slopes_along_fault_slip_rate(DataDirectory, fname_prefix, stream_order, river_csv, slip_rate_csv, labels_csv, fault_points, plate_azimuth=135):
     """
     Read in a csv file with the channel slopes and plot compared to distance
     along the fault
@@ -617,7 +617,7 @@ def plot_channel_slopes_along_fault_slip_rate(DataDirectory, fname_prefix, strea
     slip_df = pd.read_csv(slip_rate_csv)
 
     # set up a figure
-    fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(10,12), sharex=True, sharey=False)
+    fig, ax = plt.subplots(nrows=4, ncols=1, figsize=(10,15), sharex=True, sharey=False)
     ax = ax.ravel()
 
     # make a big subplot to allow sharing of axis labels
@@ -699,11 +699,27 @@ def plot_channel_slopes_along_fault_slip_rate(DataDirectory, fname_prefix, strea
     #ax[2].set_ylim(0, slip_df['slip_rate'].max()+0.1)
 
     ax[2].set_xlim(100,1100)
-    #plt.ylim(0,0.4)
+
+    # calculate azimuth deltas. Decrease in angle = restraining bend, increase = releasing bend
+    #az_deltas = pts['azimuth'].diff()
+    pts = gpd.read_file(DataDirectory+fault_points)
+    print("got the fault points")
+    az_deltas = pts['azimuth'] - plate_azimuth
+    ax[3].grid(color='0.8', linestyle='--', which='both')
+    ax[3].plot(pts['distance'], az_deltas, c = 'k', lw = 2)
+    ax[3].set_ylabel('$\Delta$ Az ($^\circ$)', fontsize=14)
+    ax[3].axhspan(0, 50, alpha=0.4, color='deepskyblue')
+    ax[3].axhspan(-50, 0, alpha=0.4, color='red')
+    ax[3].text(120, -35, 'Restraining (uplift)')
+    ax[3].text(120, 35, 'Releasing (subsidence)')
+    ax[3].set_ylim(-45,45)
+    ax[3].invert_yaxis()
+
+    ax[3].set_xlim(100,1100)
     plt.xlabel('Distance along fault (km)', fontsize=14)
 
     # save the figure
-    plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_slip_rate_SO{}.png'.format(stream_order), dpi=300)
+    plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_slip_rate_az_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
 
 def plot_channel_slopes_along_fault_azimuths(DataDirectory, fname_prefix, stream_order, river_csv, labels_csv, fault_points, plate_azimuth=135):
