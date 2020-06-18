@@ -85,9 +85,7 @@ if __name__ == '__main__':
     output_csv=DataDirectory+fname_prefix+'_profiles_fault_dist_SO{}.csv'.format(args.stream_order)
     baseline_shapefile='SanAndreasFault.shp'
     output_shapefile='SanAndreasPoints.shp'
-    # shp for azimuths
-    # az_shapefile='SanAndreasPoints_10km.shp'
-    # points, distances = swath.get_points_along_line(DataDirectory,baseline_shapefile,az_shapefile,n=200)
+
     # check if the fault dist csv already exists
     if not os.path.isfile(output_csv):
         points, distances = swath.get_points_along_line(DataDirectory,baseline_shapefile,output_shapefile,n=512)
