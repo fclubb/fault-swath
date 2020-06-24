@@ -53,7 +53,8 @@ if __name__ == '__main__':
     parser.add_argument("-lith", "--lithology", type=bool, default=False, help="If this is true I'll make plots of the channel slopes separated by lithology")
     parser.add_argument("-hs", "--hillslopes", type=bool, default=False, help="If this is true I'll make plots of hillslope gradient vs. distance")
     parser.add_argument("-multiple_so", "--multiple_so", type=bool, default=False, help="If this is true I'll plot all the stream orders")
-    parser.add_argument("-prism", "--prism", type=bool, default=False, help="If this is true I'll plot prism data along the fault")
+    parser.add_argument("-eq", "--earthquakes", type=bool, default=False, help="If this is true I'll plot the distribution of earthquakes along the fault")
+    parser.add_argument("-az", "--azimuth", type=bool, default=False, help="If this is true I'll plot the fault aziumth along strike.")
 
     args = parser.parse_args()
 
@@ -73,6 +74,7 @@ if __name__ == '__main__':
     else:
         print("WARNING! You haven't supplied the data directory. I'm using the current working directory.")
         DataDirectory = os.getcwd()
+    base_dir = '/home/bjdd72/TopographicData/TopographicData/san_andreas/'
 
     # print the arguments that you used to an output file for reproducibility
     with open(DataDirectory+args.fname_prefix+'_report.csv', 'w') as output:
@@ -93,14 +95,31 @@ if __name__ == '__main__':
         swath.bisection_method(points, coeffs, distances, profile_csv, output_csv)
 
     # labels
-    labels_csv='Y:\\san_andreas\\Uplift_rates\\placenames.csv'
+    labels_csv=base_dir+'Uplift_rates/placenames.csv'
     swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, labels_csv, labels_csv)
+
+    # horizontal slip rate
+    slip_rate_csv = base_dir+'Slip_rates/Tong_2013_InSAR.csv'
+    output_sr_csv = base_dir+'Slip_rates/Tong_2013_InSAR_fault_dist.csv'
+    if not os.path.isfile(output_sr_csv):
+        swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, slip_rate_csv, output_sr_csv)
+
+    # seismic data
+    eq_csv = base_dir+'Earthquakes/SAF_earthquakes_50km.csv'
+    output_eq_csv =  base_dir+'Earthquakes/SAF_earthquakes_50km_dist.csv'
+    if not os.path.isfile(output_eq_csv):
+        swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, eq_csv, output_eq_csv)
+
+    # gps data
+    gps_csv=base_dir+'Uplift_rates/gps/MIDAS_IGS08_SAF_50km.csv'
+    output_gps_csv=base_dir+'Uplift_rates/gps/MIDAS_IGS08_SAF_50km_dist.csv'
+    if not os.path.isfile(output_gps_csv):
+        swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, gps_csv, output_gps_csv)
+
 
     # channel slope plotting
     if args.channels:
-    #    swath.plot_channel_slopes_along_fault(DataDirectory, fname_prefix, args.stream_order, output_csv, labels_csv)
-         swath.plot_channel_slopes_along_fault_azimuths(DataDirectory, fname_prefix, args.stream_order, output_csv, labels_csv, output_shapefile)
-         #swath.plot_slopes_vs_azimuth(DataDirectory, fname_prefix, args.stream_order, output_csv, output_shapefile, plate_azimuth=135)
+        swath.plot_channel_slopes_along_fault(DataDirectory, fname_prefix, args.stream_order, output_csv, labels_csv, output_sr_csv, output_eq_csv)
 
     # hillslope plotting
     if args.hillslopes:
@@ -113,35 +132,10 @@ if __name__ == '__main__':
         # do the plotting
         swath.plot_hillslopes_along_fault(output_hillslope_csv)
 
-    # thermochron
-    if args.thermochron:
-        # directories are hard coded at the moment...
-        uplift_rate_csv='/raid/fclubb/san_andreas/Uplift_rates/Spotila_2007.csv'
-        output_uplift_csv='/raid/fclubb/san_andreas/Uplift_rates/Spotila_2007_dist.csv'
-        if not os.path.isfile(output_uplift_csv):
-            swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, uplift_rate_csv, output_uplift_csv)
-
-    if args.gps:
-        # directories are hard coded at the moment...
-        gps_csv='/raid/fclubb/san_andreas/Uplift_rates/gps/MIDAS_IGS08_SAF_50km.csv'
-        output_gps_csv='/raid/fclubb/san_andreas/Uplift_rates/gps/MIDAS_IGS08_SAF_50km_dist.csv'
-        if not os.path.isfile(output_gps_csv):
-            swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, gps_csv, output_gps_csv)
-
-    # ADD INSAR
-    if args.insar:
-        # channel slopes vs horizontal slip rate
-        slip_rate_csv = 'Y:\\san_andreas\\Slip_rates\\Tong_2013_InSAR.csv'
-        output_sr_csv = 'Y:\\san_andreas\\Slip_rates\\Tong_2013_InSAR_fault_dist.csv'
-        if not os.path.isfile(output_sr_csv):
-            swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, slip_rate_csv, output_sr_csv)
-        swath.plot_channel_slopes_along_fault_slip_rate(DataDirectory, fname_prefix, args.stream_order, output_csv, output_sr_csv, labels_csv, output_shapefile)
-
-
     # lithology
     if args.lithology:
-        lithology_raster='/raid/fclubb/san_andreas/Lithology/ca_geol_simple_utm.tif'
-        lithology_shp='/raid/fclubb/san_andreas/Lithology/ca_geol_simple_dissolved.shp'
+        lithology_raster=base_dir+'Lithology/ca_geol_simple_utm.tif'
+        lithology_shp=base_dir+'Lithology/ca_geol_simple_dissolved.shp'
         output_lith_csv = DataDirectory+fname_prefix+'_profiles_lithology_SO{}.csv'.format(args.stream_order)
         if not os.path.isfile(output_lith_csv):
             swath.burn_lithology_to_river_df(output_csv, output_lith_csv, lithology_raster)
@@ -154,9 +148,9 @@ if __name__ == '__main__':
     if args.multiple_so:
         swath.plot_channel_slopes_multiple_SO(DataDirectory,fname_prefix,labels_csv)
 
-    # prism data
-    if args.prism:
-        prism_raster='/raid/fclubb/san_andreas/Climate_data/PRISM/PRISM_ppt_30yr_normal_4kmM2_annual_bil.bil'
-        swath.plot_prism_along_fault(DataDirectory,prism_raster, output_shapefile)
+    # seismic data
+    #if args.eq:
+    #    swath.plot_earthquakes_along_fault(DataDirectory, fname_prefix, output_eq_csv)
+
 
     print("Done, enjoy your plots!")
