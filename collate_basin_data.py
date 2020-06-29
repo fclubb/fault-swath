@@ -8,6 +8,7 @@
 import pandas as pd
 import numpy as np
 import osgeo.gdal as gdal
+import os
 from os.path import exists
 from osgeo import osr
 from pyproj import Proj, transform
@@ -71,6 +72,8 @@ def get_basin_orientation(DataDirectory, basin_name):
     final_gdf.to_file(DataDirectory+'/'+'basin_shapefiles/'+basin_name+'_basins_az.shp')
 
 
-DataDirectory = '/home/bjdd72/TopographicData/TopographicData/san_andreas/NorthernSAF/'
-basin_name = 'tile_3'
-get_basin_orientation(DataDirectory, basin_name)
+DataDirectory = '/raid/fclubb/san_andreas/NorthernSAF/'
+(_, _, filenames) = os.walk(DataDirectory+'basin_shapefiles/').next()
+for f in filenames:
+    print(f)
+    get_basin_orientation(DataDirectory, f)
