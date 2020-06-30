@@ -72,8 +72,9 @@ def get_basin_orientation(DataDirectory, basin_name):
     final_gdf.to_file(DataDirectory+'/'+'basin_shapefiles/'+basin_name+'_basins_az.shp')
 
 
-DataDirectory = '/raid/fclubb/san_andreas/NorthernSAF/'
-(_, _, filenames) = os.walk(DataDirectory+'basin_shapefiles/').next()
+DataDirectory = '/raid/fclubb/san_andreas/SouthernSAF/'
+filenames = [f.name for f in os.scandir(DataDirectory) if f.is_dir()]
 for f in filenames:
-    print(f)
-    get_basin_orientation(DataDirectory, f)
+    if 'SouthernSAF_' in f:
+        print(f)
+        get_basin_orientation(DataDirectory, f)
