@@ -1,5 +1,4 @@
-# Create swath profile along an input shapefile and make some plots
-# of the cluster along the swath
+# Read in a shapefile of a fault and plot river profile morphology along it.
 # FJC 26/11/18
 
 # set backend to run on server
@@ -45,6 +44,13 @@ def azimuth(point1, point2):
     """
     angle = math.atan2(point2.x - point1.x, point2.y - point1.y)
     return math.degrees(angle)
+
+def deflection(row):
+    """
+    Use a row of a geodataframe to calculate the deflection angle relative to
+    the fault strike
+    """
+    
 
 def find_nearest_index(array, value):
     array = np.asarray(array)
@@ -98,7 +104,6 @@ def gaussian_weighted_average(x, y, power=100., lenscale=3):
         #print(new_y[i])
 
     return new_y
-
 
 def get_points_along_line(DataDirectory, baseline_shapefile, output_shapefile, n=1024):
     """
@@ -460,6 +465,17 @@ def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, r
     # save the figure
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
+
+def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, fault_points):
+    """
+    This function reads in a shapefile of the basins and then plots their orientation
+    compared to the fault strike
+    """
+    # get the basins shapefile
+    basins = gdp.read_file(DataDirectory+basins)
+    basins['centroids'] = basins['geometry'].centroid
+    basins['deflection'] = basins.apply(deflection, axis=1)
+
 
 def plot_azimuth_along_fault():
 
