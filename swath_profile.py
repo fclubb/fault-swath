@@ -50,7 +50,7 @@ def deflection(row):
     Use a row of a geodataframe to calculate the deflection angle relative to
     the fault strike
     """
-    
+
 
 def find_nearest_index(array, value):
     array = np.asarray(array)
@@ -473,6 +473,10 @@ def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, faul
     """
     # get the basins shapefile
     basins = gdp.read_file(DataDirectory+basins)
+
+    # get the distance of the outlet points along the fault
+
+
     basins['centroids'] = basins['geometry'].centroid
     basins['deflection'] = basins.apply(deflection, axis=1)
 
