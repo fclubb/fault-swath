@@ -47,6 +47,7 @@ if __name__ == '__main__':
 
     # Different options for plotting
     parser.add_argument("-ch", "--channels", type=bool, default=False, help="Plot channel slope vs. distance along the fault")
+    parser.add_argument("-b", "--basins", type=bool, default=False, help="Plot basin orientation along the fault.")
     parser.add_argument("-tc", "--thermochron", type=bool, default=False, help="If this is true I'll make plots of the channel slopes against uplift rates from thermochron")
     parser.add_argument("-gps", "--gps", type=bool, default=False, help="If this is true I'll make plots of the channel slopes vs. gps data")
     parser.add_argument("-insar", "--insar", type=bool, default=False, help="If this is true I'll make plots of the channel slopes vs. InSAR data")
@@ -92,34 +93,43 @@ if __name__ == '__main__':
     if not os.path.isfile(output_csv):
         points, distances = swath.get_points_along_line(DataDirectory,baseline_shapefile,output_shapefile,n=512)
         coeffs = swath.get_orthogonal_coefficients(points)
-        swath.bisection_method(points, coeffs, distances, profile_csv, output_csv)
+        profile_df = pd.read_csv(profile_csv)
+        swath.bisection_method(points, coeffs, distances, profile_df, output_csv)
 
     # labels
     labels_csv=base_dir+'Uplift_rates/placenames.csv'
-    swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, labels_csv, labels_csv)
+    labels_df = pd.read_csv(labels_csv)
+    swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, labels_df, labels_csv)
 
     # horizontal slip rate
     slip_rate_csv = base_dir+'Slip_rates/Tong_2013_InSAR.csv'
     output_sr_csv = base_dir+'Slip_rates/Tong_2013_InSAR_fault_dist.csv'
     if not os.path.isfile(output_sr_csv):
-        swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, slip_rate_csv, output_sr_csv)
+        sr_df = pd.read_csv(slip_rate_csv)
+        swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, sr_df, output_sr_csv)
 
     # seismic data
     eq_csv = base_dir+'Earthquakes/SAF_earthquakes_50km.csv'
     output_eq_csv =  base_dir+'Earthquakes/SAF_earthquakes_50km_dist.csv'
     if not os.path.isfile(output_eq_csv):
-        swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, eq_csv, output_eq_csv)
+        eq_dr = pd.read_csv(eq_csv)
+        swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, eq_df, output_eq_csv)
 
     # gps data
     gps_csv=base_dir+'Uplift_rates/gps/MIDAS_IGS08_SAF_50km.csv'
     output_gps_csv=base_dir+'Uplift_rates/gps/MIDAS_IGS08_SAF_50km_dist.csv'
     if not os.path.isfile(output_gps_csv):
-        swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, gps_csv, output_gps_csv)
+        gps_df = pd.read_csv(gps_csv)
+        swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, gps_df, output_gps_csv)
 
 
     # channel slope plotting
     if args.channels:
         swath.plot_channel_slopes_along_fault(DataDirectory, fname_prefix, args.stream_order, output_csv, labels_csv, output_sr_csv, output_eq_csv)
+
+    if args.basins:
+        basins = DataDirectory+fname_prefix+'_basins_WGS84.shp'
+        swath.plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, baseline_shapefile, output_shapefile, output_sr_csv)
 
     # hillslope plotting
     if args.hillslopes:
@@ -128,7 +138,8 @@ if __name__ == '__main__':
         if not os.path.isfile(output_hillslope_csv):
             points, distances = swath.get_points_along_line(n=512)
             coeffs = swath.get_orthogonal_coefficients(points)
-            swath.bisection_method(points, coeffs, distances, hillslope_csv, output_hillslope_csv)
+            hillslope_df = pd.read_csv(hillslope_csv)
+            swath.bisection_method(points, coeffs, distances, hillslope_df, output_hillslope_csv)
         # do the plotting
         swath.plot_hillslopes_along_fault(output_hillslope_csv)
 

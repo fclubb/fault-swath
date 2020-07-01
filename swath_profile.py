@@ -45,12 +45,38 @@ def azimuth(point1, point2):
     angle = math.atan2(point2.x - point1.x, point2.y - point1.y)
     return math.degrees(angle)
 
-def deflection(row):
+def deflection(row, fault_pts):
     """
-    Use a row of a geodataframe to calculate the deflection angle relative to
-    the fault strike
+    Use a row of a basin dataframe to calculate the deflection angle relative to
+    the fault strike.
     """
+    # get the basin orientation vector
+    point1 = row['centroids']
+    point2 = [row['longitude'], row['latitude']]
+    basin_vec = np.array([(row['longitude'] - row['centroids'].x), (row['latitude'] - row['centroids'].y)])
 
+    # find the nearest point along the fault to this basin.
+    fault_dist = fault_pts['distance']
+    fault_y = fault_pts['geometry'].y
+    fault_x = fault_pts['geometry'].x
+    idx = find_nearest_index(fault_dist, row['fault_dist'])
+    nearest_dist = fault_pts['distance'][idx]
+    #print(row['fault_dist'], nearest_dist)
+
+    # get the fault strike vector
+    # calculate nearest fault point - basin point. If negative, get the preceding point. If positive, get the following point.
+    #if (nearest_dist - row['fault_dist'] < 0):
+    #    fault_vec = np.array([(fault_x[idx] - fault_x[idx-1]), (fault_y[idx] - fault_y[idx-1])])
+    #else:
+    fault_vec = np.array([(fault_x[idx+1] - fault_x[idx]), (fault_y[idx+1] - fault_y[idx])])
+    #print(fault_vec)
+
+    # we have the two vectors. now calculate the dot product between them to find theta_d
+    # theta_d = arccos(abs((basin_vec . fault_vec)/magnitude(basin_vec) * magnitude(fault_vec)|))
+    theta_d = math.acos(abs(basin_vec.dot(fault_vec)/(np.linalg.norm(basin_vec)*np.linalg.norm(fault_vec))))
+
+    # return the deflection metric in degrees
+    return(math.degrees(theta_d))
 
 def find_nearest_index(array, value):
     array = np.asarray(array)
@@ -163,14 +189,15 @@ def get_points_along_line(DataDirectory, baseline_shapefile, output_shapefile, n
 
     return points, distances
 
-def get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, pts_csv, output_pts_csv):
+def get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, df, output_pts_csv):
     """
     Find the distance along the fault shapefile from a DataFrame
     with lat/long coordinates
+    Args:
+        df: the dataframe with the points
+        output_pts_csv: the csv filename to save the output dataframe with additional column of distances along the fault
     """
-    df = pd.read_csv(pts_csv)
-    #df = df.apply(pd.to_numeric, errors='coerce')
-    #print(df)
+
     # read in the baseline shapefile
     c = collection(DataDirectory+baseline_shapefile, 'r')
     rec = c.next()
@@ -214,7 +241,6 @@ def get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, pts_
             distances.append(dist)
             # write the distance away from the fault for each point
             away_dist = GeoPyDist((line_pt.y, line_pt.x), (point.y, point.x)).km
-            #print('Dist from fault:', away_dist)
             fault_normal_dists.append(away_dist)
         else:
             distances.append(np.nan)
@@ -224,6 +250,7 @@ def get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, pts_
     df['fault_dist'] = distances
     df['fault_normal_dist'] = fault_normal_dists
     df.to_csv(output_pts_csv, index=False)
+    return df
 
 def get_orthogonal_coefficients(pts):
     """
@@ -257,7 +284,7 @@ def get_orthogonal_coefficients(pts):
 
     return coeffs
 
-def bisection_method(points, coeffs, distances, cluster_csv, output_csv):
+def bisection_method(points, coeffs, distances, df, output_csv):
     """
     Use a bisectioning method (https://en.wikipedia.org/wiki/Bisection_method)
     to find the nearest point along the fault to each channel in the river cluster csv
@@ -270,7 +297,7 @@ def bisection_method(points, coeffs, distances, cluster_csv, output_csv):
     """
     print("CHECKING SOME LENGTHS")
     # read in the csv to a pandas dataframe
-    df = pd.read_csv(cluster_csv)
+    #df = pd.read_csv(cluster_csv)
     cluster_x = df.longitude.values
     cluster_y = df.latitude.values
     alpha = np.empty(len(cluster_x))
@@ -324,6 +351,7 @@ def bisection_method(points, coeffs, distances, cluster_csv, output_csv):
 
 
     df.to_csv(output_csv, index=False)
+    return df
 
 def percentile(n):
     def percentile_(x):
@@ -413,7 +441,7 @@ def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, r
 
         # rolling median of channel slopes
         slopes_df = gr.sort_values(by='fault_dist')
-        slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(10).median()
+        slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(10, center=True).median()
 
         # create a mask for gaps in the median slopes
         these_dists = slopes_df['fault_dist'].values
@@ -466,20 +494,103 @@ def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, r
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
 
-def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, fault_points):
+def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, baseline_shapefile, baseline_points, slip_rate_csv):
     """
     This function reads in a shapefile of the basins and then plots their orientation
     compared to the fault strike
     """
-    # get the basins shapefile
-    basins = gdp.read_file(DataDirectory+basins)
+    # read in the shapefile of fault points
+    fault_pts = gpd.read_file(DataDirectory+baseline_points)
 
-    # get the distance of the outlet points along the fault
+    # check if you have calculated basin deflection, and if not then calculate it
+    basins_file = DataDirectory+fname_prefix+'_basins_deflection.shp'
+    if not os.path.isfile(basins_file):
+        # get the basins shapefile
+        gdf = gpd.read_file(basins)
+        gdf['centroids'] = gdf['geometry'].centroid
+        gdf = gdf.rename(columns={"latitude_o": "latitude", "longitude_": "longitude"})
 
+        # check if you have already calculated the distance along the fault for each basin.
+        output_basin_csv = DataDirectory+fname_prefix+'_basins_WGS84_dist.csv'
+        if not os.path.isfile(output_basin_csv):
+            # change the column names to latitue and longitude so they can be read properly
+            print(gdf.columns)
+            points = list(fault_pts['geometry'])
+            #print(points)
+            distances = fault_pts['distance']
+            coeffs = get_orthogonal_coefficients(points)
+            basin_df = bisection_method(points, coeffs, distances, gdf, output_basin_csv)
+            print(basin_df)
+        else:
+            basin_df = pd.read_csv(output_basin_csv)
 
-    basins['centroids'] = basins['geometry'].centroid
-    basins['deflection'] = basins.apply(deflection, axis=1)
+        # merge the basin gdf with the df
+        gdf['fault_dist'] = basin_df['fault_dist']
+        gdf['direction'] = basin_df['direction']
+        #print(fault_pts)
 
+        gdf['deflection'] = gdf.apply(deflection, axis=1, fault_pts=fault_pts)
+        gdf = gpd.GeoDataFrame(gdf[['basin_id', 'azimuth', 'deflection', 'latitude', 'longitude', 'fault_dist', 'direction']], geometry=gdf['geometry'], crs='EPSG:4326')
+        gdf.to_file(DataDirectory+fname_prefix+'_basins_deflection.shp')
+    else:
+        gdf = gpd.read_file(basins_file)
+
+    # now do the plotting along fault
+    fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(10,12), sharex=True, sharey=True)
+    ax = ax.ravel()
+    # make a big subplot to allow sharing of axis labels
+    fig.add_subplot(111, frameon=False)
+    # hide tick and tick label of the big axes
+    plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
+    colors = ['r', 'b']
+
+    # plot the channel slope data
+    titles = ['North American Plate', 'Pacific Plate']
+    for i, title in enumerate(titles):
+        # set up each subplot
+        ax[i].grid(color='0.8', linestyle='--', which='both')
+        ax[i].set_ylim(0,90)
+        ax[i].text(0.03,0.1, titles[i], fontsize=12, transform=ax[i].transAxes, bbox=dict(facecolor='white'))
+        ax[i].set_ylabel('£$\theta_d$ ($^\circ$)')
+
+        # first, all the basins east of the fault (direction < 0)
+        if i == 0:
+            this_df = gdf[gdf['direction'] < 0]
+        else:
+        # then all the basins west of the fault (direction > 0)
+            this_df = gdf[gdf['direction'] > 0]
+
+        # now group by the fault dist and plot percentages
+        gr = this_df.groupby(['fault_dist'])['deflection'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
+        ax[i].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.4', mec='0.4', c='0.4', capsize=2, alpha=0.1)
+
+        # rolling median
+        slopes_df = gr.sort_values(by='fault_dist')
+        slopes_df['rollmedian'] = slopes_df['median'].rolling(10, center=True).median()
+        print(slopes_df)
+
+        # create a mask for gaps in the median slopes
+        these_dists = slopes_df['fault_dist'].values
+        mask_starts = np.where(these_dists-np.roll(these_dists,1) > 10)[0]
+        print(mask_starts)
+        mc = ma.array(slopes_df['rollmedian'].values)
+        mc[mask_starts] = ma.masked
+        ax[i].plot(slopes_df['fault_dist'], mc, c=colors[i], zorder=100, lw=3, ls='-')
+
+    # plot the slip rates
+    slip_df = pd.read_csv(slip_rate_csv)
+    ax[2].grid(color='0.8', linestyle='--', which='both')
+    ax[2].axvspan(360, 580, facecolor='0.5', alpha=0.6)
+    ax[2].errorbar(x=slip_df['fault_dist'], y=slip_df['slip_rate'], yerr=slip_df['slip_rate_u'], fmt='o',ms=8, marker='D', mfc='0.3', mec='k', c='k', capsize=4)
+    ax[2].set_ylabel('Right lateral slip rate (mm/yr)', labelpad=10, fontsize=14)
+    ax[2].set_ylim(0, slip_df['slip_rate'].max()+0.1)
+
+    ax[2].set_xlim(100,1100)
+
+    # save the figure
+    plt.xlabel('Distance along fault (km)')
+    plt.savefig(DataDirectory+fname_prefix+'_basins_deflection.png', dpi=300)
+    plt.clf()
 
 def plot_azimuth_along_fault():
 
@@ -557,7 +668,7 @@ def plot_channel_slopes_multiple_SO(DataDirectory, fname_prefix, labels_csv):
 
             # rolling median of channel slopes
             slopes_df = gr.sort_values(by='fault_dist')
-            slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(10).median()
+            slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(10, center=True).median()
 
             # create a mask for gaps in the median slopes
             these_dists = slopes_df['fault_dist'].values
@@ -700,7 +811,7 @@ def plot_hillslopes_along_fault(hillslope_csv):
 
         # rolling median of channel slopes
         slopes_df = df.sort_values(by='fault_dist')
-        slopes_df['slope_rollmedian'] = slopes_df['slope_median'].rolling(50).median()
+        slopes_df['slope_rollmedian'] = slopes_df['slope_median'].rolling(50, center=True).median()
 
         # create a mask for gaps in the median slopes
         these_dists = slopes_df['fault_dist'].values
@@ -862,7 +973,7 @@ def plot_slopes_with_lithology(DataDirectory, fname_prefix, river_csv, labels_cs
 
         # rolling median of channel slopes
         slopes_df = gr.sort_values(by='fault_dist')
-        slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(5).median()
+        slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(5, center=True).median()
 
         # create a mask for gaps in the median slopes
         these_dists = slopes_df['fault_dist'].values
@@ -994,7 +1105,7 @@ def plot_lithology_deltas(DataDirectory, fname_prefix, river_csv, labels_csv, st
                 # rolling median of channel slopes
                 slopes_df = gr.sort_values(by='fault_dist')
                 print(slopes_df)
-                slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(5).median()
+                slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(5, center=True).median()
 
                 slopes_df['delta'] = slopes_df['slope_rollmedian'] - all_liths['slope_rollmedian']
                 #print("DELTA LITH CODE", lith_code)
@@ -1098,7 +1209,7 @@ def plot_channel_slopes_uniform_lithology(DataDirectory, fname_prefix, river_csv
                 # rolling median of channel slopes
                 slopes_df = gr.sort_values(by='fault_dist')
                 print(slopes_df)
-                slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(5).median()
+                slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(5, center=True).median()
 
                 # create a mask for gaps in the median slopes
                 these_dists = slopes_df['fault_dist'].values
@@ -1172,7 +1283,7 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv, gp
 
     # rolling median of channel slopes
     slopes_df = gr.sort_values(by='fault_dist')
-    slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(10).median()
+    slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(10, center=True).median()
     ax[0].plot(slopes_df['fault_dist'], slopes_df['slope_rollmedian'], c='r', zorder=100, lw=3, ls='--')
 
     # find and plot peaks in the rolling median
@@ -1252,7 +1363,7 @@ def plot_uplift_rates_along_fault_slopes(river_csv, uplift_rate_csv, gps_csv, gp
 
     # rolling median of gps uplift rates
     sorted_df = gps_df.sort_values(by='fault_dist')
-    sorted_df['rollmedian'] = sorted_df['RU(mm/yr)'].rolling(10).median()
+    sorted_df['rollmedian'] = sorted_df['RU(mm/yr)'].rolling(10, center=True).median()
     ax[2].plot(sorted_df['fault_dist'], sorted_df['rollmedian'], c='k', zorder=100, lw=3)
 
     # add colours for uplift and subsidence
@@ -1301,7 +1412,7 @@ def plot_junction_angles_along_fault(junction_angle_csv, slip_rate_csv, threshol
 
     # rolling mean of channel slopes
     sorted_df = gr.sort_values(by='fault_dist')
-    sorted_df['angle_rollmedian'] = sorted_df['median'].rolling(5).median()
+    sorted_df['angle_rollmedian'] = sorted_df['median'].rolling(5, center=True).median()
     ax[0].plot(sorted_df['fault_dist'], sorted_df['angle_rollmedian'], c='r', zorder=100, lw=3, ls='--')
 
     #gr.plot.scatter(x='fault_dist', y='median')
@@ -1358,7 +1469,7 @@ def plot_drainage_density_along_fault(dd_csv, uplift_rate_csv, gps_csv):
     dd_df['drainage_density'] = dd_df['drainage_density'] * 1e6
     # rolling median
     this_df = dd_df.sort_values(by='fault_dist')
-    this_df['rollmedian'] = this_df['drainage_density'].rolling(20).median()
+    this_df['rollmedian'] = this_df['drainage_density'].rolling(20, center=True).median()
     ax[0].plot(this_df['fault_dist'], this_df['rollmedian'], c='r', zorder=100, lw=2, ls='--')
 
     ax[0].scatter(dd_df['fault_dist'], dd_df['drainage_density'],s=1, alpha=0.1, c='0.5')
