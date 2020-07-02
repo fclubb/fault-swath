@@ -508,6 +508,7 @@ def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, base
         # get the basins shapefile
         gdf = gpd.read_file(basins)
         gdf['centroids'] = gdf['geometry'].centroid
+        gdf['basin_area'] = gdf['geometry'].to_crs('epsg:32610').area
         gdf = gdf.rename(columns={"latitude_o": "latitude", "longitude_": "longitude"})
 
         # check if you have already calculated the distance along the fault for each basin.
@@ -530,13 +531,13 @@ def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, base
         #print(fault_pts)
 
         gdf['deflection'] = gdf.apply(deflection, axis=1, fault_pts=fault_pts)
-        gdf = gpd.GeoDataFrame(gdf[['basin_id', 'azimuth', 'deflection', 'latitude', 'longitude', 'fault_dist', 'direction']], geometry=gdf['geometry'], crs='EPSG:4326')
+        gdf = gpd.GeoDataFrame(gdf[['basin_id', 'basin_area', 'azimuth', 'deflection', 'latitude', 'longitude', 'fault_dist', 'direction']], geometry=gdf['geometry'], crs='EPSG:4326')
         gdf.to_file(DataDirectory+fname_prefix+'_basins_deflection.shp')
     else:
         gdf = gpd.read_file(basins_file)
 
     # now do the plotting along fault
-    fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(10,12), sharex=True, sharey=True)
+    fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(10,12), sharex=True)
     ax = ax.ravel()
     # make a big subplot to allow sharing of axis labels
     fig.add_subplot(111, frameon=False)
@@ -551,7 +552,7 @@ def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, base
         ax[i].grid(color='0.8', linestyle='--', which='both')
         ax[i].set_ylim(0,90)
         ax[i].text(0.03,0.1, titles[i], fontsize=12, transform=ax[i].transAxes, bbox=dict(facecolor='white'))
-        ax[i].set_ylabel('£$\theta_d$ ($^\circ$)')
+        ax[i].set_ylabel('$\\theta_d$ ($^\circ$)')
 
         # first, all the basins east of the fault (direction < 0)
         if i == 0:
@@ -562,7 +563,8 @@ def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, base
 
         # now group by the fault dist and plot percentages
         gr = this_df.groupby(['fault_dist'])['deflection'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
-        ax[i].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.4', mec='0.4', c='0.4', capsize=2, alpha=0.1)
+        area = this_df.groupby(['fault_dist'])['basin_area'].median()
+        ax[i].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.4', mec='0.4', c=area, capsize=2, alpha=0.1)
 
         # rolling median
         slopes_df = gr.sort_values(by='fault_dist')
@@ -583,7 +585,7 @@ def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, base
     ax[2].axvspan(360, 580, facecolor='0.5', alpha=0.6)
     ax[2].errorbar(x=slip_df['fault_dist'], y=slip_df['slip_rate'], yerr=slip_df['slip_rate_u'], fmt='o',ms=8, marker='D', mfc='0.3', mec='k', c='k', capsize=4)
     ax[2].set_ylabel('Right lateral slip rate (mm/yr)', labelpad=10, fontsize=14)
-    ax[2].set_ylim(0, slip_df['slip_rate'].max()+0.1)
+    #ax[2].set_ylim(0, slip_df['slip_rate'].max()+0.1)
 
     ax[2].set_xlim(100,1100)
 
