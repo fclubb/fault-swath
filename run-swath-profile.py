@@ -109,11 +109,14 @@ if __name__ == '__main__':
         swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, sr_df, output_sr_csv)
 
     # seismic data
-    eq_csv = base_dir+'Earthquakes/SAF_earthquakes_50km.csv'
-    output_eq_csv =  base_dir+'Earthquakes/SAF_earthquakes_50km_dist.csv'
+    eq_csv = base_dir+'Earthquakes/SAF_earthquakes_25km.csv'
+    output_eq_csv =  base_dir+'Earthquakes/SAF_earthquakes_25km_dist.csv'
     if not os.path.isfile(output_eq_csv):
-        eq_dr = pd.read_csv(eq_csv)
-        swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, eq_df, output_eq_csv)
+        eq_df = pd.read_csv(eq_csv)
+        points, distances = swath.get_points_along_line(DataDirectory,baseline_shapefile,output_shapefile,n=512)
+        coeffs = swath.get_orthogonal_coefficients(points)
+        #swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, eq_df, output_eq_csv)
+        swath.bisection_method(points, coeffs, distances, eq_df, output_eq_csv)
 
     # gps data
     gps_csv=base_dir+'Uplift_rates/gps/MIDAS_IGS08_SAF_50km.csv'
@@ -160,8 +163,8 @@ if __name__ == '__main__':
         swath.plot_channel_slopes_multiple_SO(DataDirectory,fname_prefix,labels_csv)
 
     # seismic data
-    #if args.eq:
-    #    swath.plot_earthquakes_along_fault(DataDirectory, fname_prefix, output_eq_csv)
+    if args.earthquakes:
+        swath.plot_earthquakes_along_fault(DataDirectory, fname_prefix, output_eq_csv)
 
 
     print("Done, enjoy your plots!")

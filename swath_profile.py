@@ -18,7 +18,7 @@ import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 from inspect import signature
 
-# shapefiles
+# geospatial modules
 from fiona import collection
 from shapely.geometry import shape, LineString, mapping
 from shapely.geometry import Point as shapelyPoint
@@ -380,6 +380,10 @@ def q1(x):
 def q2(x):
     return x.quantile(0.75)
 
+def log_sum(x):
+    return np.log(np.sum(10**x))
+
+
 def process_gps_data(gps_df, threshold_record_length=5, threshold_uplift=5):
     """
     Thin the gps data to remove stations with short record lengths and
@@ -405,7 +409,7 @@ def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, r
     river_df = river_df[river_df['slope'] > 0]
 
     # set up a figure
-    fig, ax = plt.subplots(nrows=4, ncols=1, figsize=(10,15), sharex=True, sharey=False)
+    fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(10,15), sharex=True, sharey=False)
     ax = ax.ravel()
 
     # make a big subplot to allow sharing of axis labels
@@ -482,16 +486,45 @@ def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, r
 
     ax[2].set_xlim(100,1100)
 
-    # plot the earthquakes
+def plot_earthquakes_along_fault(DataDirectory, fname_prefix, eq_csv):
+
+    # set up a figure
+    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10,8), sharex=True, sharey=False)
+    ax = ax.ravel()
+
+    # make a big subplot to allow sharing of axis labels
+    fig.add_subplot(111, frameon=False)
+    # hide tick and tick label of the big axes
+    plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
+
+    #plot n eqs
     eq_df = pd.read_csv(eq_csv)
-    ax[3].grid(color='0.8', linestyle='--', which='both')
-    norm = cm.colors.Normalize(vmin=eq_df['depth'].min(), vmax=eq_df['depth'].max())
-    ax[3].scatter(eq_df['fault_dist'], eq_df['magnitude'], c=eq_df['depth'], norm=norm, alpha=0.5, ec='k')
-    ax[3].set_ylabel('Magnitude (Mw)', labelpad=10, fontsize=14)
-    ax[3].set_xlabel('Distance along fault (km)')
+    ax[0].grid(color='0.8', linestyle='--', which='both')
+    gr = eq_df.groupby(['fault_dist'])['magnitude'].agg(['count',log_sum]).reset_index()
+    # create a mask for data gaps
+    these_dists = gr['fault_dist'].values
+    mask_starts = np.where(these_dists-np.roll(these_dists,1) > 10)[0]
+
+    mc = ma.array(gr['count'].values)
+    mc[mask_starts] = ma.masked
+    ax[0].plot(gr['fault_dist'], mc, c='k')
+    ax[0].axvspan(360, 580, facecolor='0.5', alpha=0.6)
+    ax[0].set_ylabel('EQ frequency', labelpad=10, fontsize=14)
+    print(gr)
+
+    # plot the earthquake magnitude
+    mw = ma.array(gr['log_sum'].values)
+    mw[mask_starts] = ma.masked
+    ax[1].grid(color='0.8', linestyle='--', which='both')
+    ax[1].plot(gr['fault_dist'], mw, c='b')
+    ax[1].axvspan(360, 580, facecolor='0.5', alpha=0.6)
+    ax[1].set_ylabel('$\Sigma$ Mw', labelpad=10, fontsize=14)
+    ax[1].set_xlabel('Distance along fault (km)', fontsize=14)
+
+    ax[1].set_xlim(100,1100)
 
     # save the figure
-    plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_SO{}.png'.format(stream_order), dpi=300)
+    plt.savefig(DataDirectory+fname_prefix+'_fault_dist_EQs.png', dpi=300)
     plt.clf()
 
 def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, baseline_shapefile, baseline_points, slip_rate_csv):
@@ -544,6 +577,8 @@ def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, base
     # hide tick and tick label of the big axes
     plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
     colors = ['r', 'b']
+    # set the default colourmap
+    plt.rc('image', cmap='gray')
 
     # plot the channel slope data
     titles = ['North American Plate', 'Pacific Plate']
@@ -564,7 +599,8 @@ def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, base
         # now group by the fault dist and plot percentages
         gr = this_df.groupby(['fault_dist'])['deflection'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
         area = this_df.groupby(['fault_dist'])['basin_area'].median()
-        ax[i].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.4', mec='0.4', c=area, capsize=2, alpha=0.1)
+        ax[i].scatter(x=gr['fault_dist'], y=gr['median'], c=area, cmap='gray', zorder=2, s=8, marker='D')
+        #ax[i].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=2, c='0.5', alpha=0.2, capsize=2, zorder=1)
 
         # rolling median
         slopes_df = gr.sort_values(by='fault_dist')
