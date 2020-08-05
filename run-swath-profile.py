@@ -128,7 +128,7 @@ if __name__ == '__main__':
 
     # channel slope plotting
     if args.channels:
-        swath.plot_channel_slopes_along_fault(DataDirectory, fname_prefix, args.stream_order, output_csv, labels_csv, output_sr_csv, output_eq_csv)
+        swath.plot_channel_slopes_along_fault(DataDirectory, fname_prefix, args.stream_order, output_csv, labels_csv, output_sr_csv, output_shapefile)
 
     if args.basins:
         basins = DataDirectory+fname_prefix+'_basins_WGS84.shp'
