@@ -35,16 +35,18 @@ fig = plt.figure(figsize=(14,8))
 ax = fig.add_subplot(121, projection='polar')
 ax.set_theta_zero_location('N')
 ax.set_theta_direction(-1)
-ax.set_title('Fault strike orientation', y=1.1)
-ax.bar(np.deg2rad(bin_edges[0:-1]), strike_hist, width=np.deg2rad(bin_width), align='edge', edgecolor='0.2', color='red', zorder=2, alpha=0.5)
+ax.set_title('Fault strike orientation', y=1.1, fontsize=16)
+ax.bar(np.deg2rad(bin_edges[0:-1]), strike_hist, width=np.deg2rad(bin_width), align='edge', edgecolor='0.2', color='0.5', zorder=2, alpha=0.5)
+ax.tick_params(labelsize=12)
 
 # set up the basin orientation subplot
 ax = fig.add_subplot(122, projection='polar')
 ax.set_theta_zero_location('N')
 ax.set_theta_direction(-1)
-ax.set_title('Drainage basin orientation', y=1.1)
+ax.set_title('Drainage basin orientation', y=1.1, fontsize=16)
+ax.tick_params(labelsize=12)
 
 # plot the histogram as bars. The bin edges are used as the left hand coordinate for the bars, minus the last edge. The histogram counts are the bar heights.
-ax.bar(np.deg2rad(bin_edges[0:-1]), basins_hist, width=np.deg2rad(bin_width), align='edge', edgecolor='0.2', color='deepskyblue', zorder=2, alpha=0.5)
+ax.bar(np.deg2rad(bin_edges[0:-1]), basins_hist, width=np.deg2rad(bin_width), align='edge', edgecolor='0.2', color='0.5', zorder=2, alpha=0.5)
 #plt.subplots_adjust(wspace=0.5)
 plt.savefig('SAF_rose_diagrams.png', dpi=300)

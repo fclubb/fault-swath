@@ -594,7 +594,7 @@ def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, base
         gdf = gpd.read_file(basins_file)
 
     # now do the plotting along fault
-    fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(10,12), sharex=True)
+    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10,6), sharex=True)
     ax = ax.ravel()
     # make a big subplot to allow sharing of axis labels
     fig.add_subplot(111, frameon=False)
@@ -621,14 +621,21 @@ def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, base
             this_df = gdf[gdf['direction'] > 0]
 
         # now group by the fault dist and plot percentages
-        gr = this_df.groupby(['fault_dist'])['deflection'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
+        #gr2 = this_df.groupby(['fault_dist'])['deflection'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
+
+        # group by the fault dist and get the mean deflection at each distance weighted by drainage area (larger areas = higher weights)
+        g = this_df.groupby(['fault_dist'])
+        gr = g.apply(lambda x: pd.Series(np.average(x['deflection'], weights=x['basin_area'])).reset_index(name='Deflection_weighted')).reset_index()
+        #gr = g.apply(lambda x: pd.Series(np.average(x['deflection'], weights=None)).reset_index(name='Deflection_weighted')).reset_index()
         area = this_df.groupby(['fault_dist'])['basin_area'].median()
-        ax[i].scatter(x=gr['fault_dist'], y=gr['median'], c=area, cmap='gray', zorder=2, s=8, marker='D')
+        print(area)
+        ax[i].scatter(x=gr['fault_dist'], y=gr['Deflection_weighted'], c='0.5', edgecolor='k', zorder=2, s=area/1000, marker='D', alpha=0.2)
+        ax[i].axvspan(400, 580, facecolor='0.8', alpha=0.6, zorder=1)
         #ax[i].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=2, c='0.5', alpha=0.2, capsize=2, zorder=1)
 
         # rolling median
         slopes_df = gr.sort_values(by='fault_dist')
-        slopes_df['rollmedian'] = slopes_df['median'].rolling(10, center=True).median()
+        slopes_df['rollmedian'] = slopes_df['Deflection_weighted'].rolling(10, center=True).median()
         print(slopes_df)
 
         # create a mask for gaps in the median slopes
@@ -640,14 +647,14 @@ def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, base
         ax[i].plot(slopes_df['fault_dist'], mc, c=colors[i], zorder=100, lw=3, ls='-')
 
     # plot the slip rates
-    slip_df = pd.read_csv(slip_rate_csv)
-    ax[2].grid(color='0.8', linestyle='--', which='both')
-    ax[2].axvspan(400, 580, facecolor='0.5', alpha=0.6)
-    ax[2].errorbar(x=slip_df['fault_dist'], y=slip_df['slip_rate'], yerr=slip_df['slip_rate_u'], fmt='o',ms=8, marker='D', mfc='0.3', mec='k', c='k', capsize=4)
-    ax[2].set_ylabel('Right lateral slip rate (mm/yr)', labelpad=10, fontsize=14)
+    #slip_df = pd.read_csv(slip_rate_csv)
+    # ax[2].grid(color='0.8', linestyle='--', which='both')
+    # ax[2].axvspan(400, 580, facecolor='0.5', alpha=0.6)
+    # ax[2].errorbar(x=slip_df['fault_dist'], y=slip_df['slip_rate'], yerr=slip_df['slip_rate_u'], fmt='o',ms=8, marker='D', mfc='0.3', mec='k', c='k', capsize=4)
+    # ax[2].set_ylabel('Right lateral slip rate (mm/yr)', labelpad=10, fontsize=14)
     #ax[2].set_ylim(0, slip_df['slip_rate'].max()+0.1)
 
-    ax[2].set_xlim(100,1100)
+    #ax[2].set_xlim(100,1100)
 
     # save the figure
     plt.xlabel('Distance along fault (km)')
