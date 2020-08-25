@@ -132,7 +132,7 @@ if __name__ == '__main__':
 
     if args.basins:
         basins = DataDirectory+fname_prefix+'_basins_WGS84.shp'
-        swath.plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, baseline_shapefile, output_shapefile, output_sr_csv)
+        swath.plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, baseline_shapefile, output_shapefile, labels_csv)
 
     # hillslope plotting
     if args.hillslopes:
@@ -164,7 +164,7 @@ if __name__ == '__main__':
 
     # seismic data
     if args.earthquakes:
-        swath.plot_earthquakes_along_fault(DataDirectory, fname_prefix, output_eq_csv)
+        swath.plot_earthquakes_along_fault(DataDirectory, fname_prefix, output_eq_csv, labels_csv)
 
 
     print("Done, enjoy your plots!")

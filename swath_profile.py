@@ -510,7 +510,7 @@ def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, r
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
 
-def plot_earthquakes_along_fault(DataDirectory, fname_prefix, eq_csv):
+def plot_earthquakes_along_fault(DataDirectory, fname_prefix, eq_csv, labels_csv):
 
     # set up a figure
     fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10,8), sharex=True, sharey=False)
@@ -536,6 +536,13 @@ def plot_earthquakes_along_fault(DataDirectory, fname_prefix, eq_csv):
     ax[0].set_ylabel('EQ frequency', labelpad=10, fontsize=14)
     print(gr)
 
+    # placenames
+    labels_df = pd.read_csv(labels_csv)
+    labels = labels_df['Label']
+    labels_dist = labels_df['fault_dist']
+    for i in range(0, len(labels)):
+        ax[0].annotate(labels[i], xy=(labels_dist[i],210), xytext=(labels_dist[i], 250), ha='center', fontsize=10, arrowprops=dict(facecolor='k', arrowstyle="->"))
+
     # plot the earthquake magnitude
     mw = ma.array(gr['log_sum'].values)
     mw[mask_starts] = ma.masked
@@ -551,7 +558,7 @@ def plot_earthquakes_along_fault(DataDirectory, fname_prefix, eq_csv):
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_EQs.png', dpi=300)
     plt.clf()
 
-def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, baseline_shapefile, baseline_points, slip_rate_csv):
+def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, baseline_shapefile, baseline_points, labels_csv):
     """
     This function reads in a shapefile of the basins and then plots their orientation
     compared to the fault strike
@@ -646,15 +653,12 @@ def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, base
         mc[mask_starts] = ma.masked
         ax[i].plot(slopes_df['fault_dist'], mc, c=colors[i], zorder=100, lw=3, ls='-')
 
-    # plot the slip rates
-    #slip_df = pd.read_csv(slip_rate_csv)
-    # ax[2].grid(color='0.8', linestyle='--', which='both')
-    # ax[2].axvspan(400, 580, facecolor='0.5', alpha=0.6)
-    # ax[2].errorbar(x=slip_df['fault_dist'], y=slip_df['slip_rate'], yerr=slip_df['slip_rate_u'], fmt='o',ms=8, marker='D', mfc='0.3', mec='k', c='k', capsize=4)
-    # ax[2].set_ylabel('Right lateral slip rate (mm/yr)', labelpad=10, fontsize=14)
-    #ax[2].set_ylim(0, slip_df['slip_rate'].max()+0.1)
-
-    #ax[2].set_xlim(100,1100)
+    # placenames
+    labels_df = pd.read_csv(labels_csv)
+    labels = labels_df['Label']
+    labels_dist = labels_df['fault_dist']
+    for i in range(0, len(labels)):
+        ax[0].annotate(labels[i], xy=(labels_dist[i],90), xytext=(labels_dist[i], 110), ha='center', fontsize=10, arrowprops=dict(facecolor='k', arrowstyle="->"))
 
     # save the figure
     plt.xlabel('Distance along fault (km)')
