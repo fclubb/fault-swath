@@ -510,7 +510,18 @@ def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, r
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
 
-def plot_earthquakes_along_fault(DataDirectory, fname_prefix, eq_csv, labels_csv):
+    return peak_dists, peak_slopes
+
+def plot_earthquakes_along_fault(DataDirectory, fname_prefix, eq_csv, labels_csv, peak_dists):
+    """
+    Make a plot of the earthquake frequency and summed magnitude along fault. Plot the channel slope peaks
+    on top of this.
+
+    Args:
+        eq_csv: csv file with the earthquake data
+        labels_csv: point locations of city labels to add
+        peak_dists: array of distances along fault of each channel slope peak
+    """
 
     # set up a figure
     fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10,8), sharex=True, sharey=False)
@@ -524,16 +535,17 @@ def plot_earthquakes_along_fault(DataDirectory, fname_prefix, eq_csv, labels_csv
     #plot n eqs
     eq_df = pd.read_csv(eq_csv)
     ax[0].grid(color='0.8', linestyle='--', which='both')
-    gr = eq_df.groupby(['fault_dist'])['magnitude'].agg(['count',log_sum]).reset_index()
+    gr = eq_df.groupby(['fault_dist'])['magnitude'].agg(['count','max',log_sum]).reset_index()
     # create a mask for data gaps
     these_dists = gr['fault_dist'].values
     mask_starts = np.where(these_dists-np.roll(these_dists,1) > 10)[0]
 
     mc = ma.array(gr['count'].values)
     mc[mask_starts] = ma.masked
-    ax[0].plot(gr['fault_dist'], mc, c='k')
+    ax[0].plot(gr['fault_dist'], mc, c='k', zorder=100)
     ax[0].axvspan(400, 580, facecolor='0.5', alpha=0.6)
-    ax[0].set_ylabel('EQ frequency', labelpad=10, fontsize=14)
+    ax[0].set_ylim(-20,)
+    ax[0].set_ylabel('Frequency', labelpad=10, fontsize=14)
     print(gr)
 
     # placenames
@@ -541,18 +553,41 @@ def plot_earthquakes_along_fault(DataDirectory, fname_prefix, eq_csv, labels_csv
     labels = labels_df['Label']
     labels_dist = labels_df['fault_dist']
     for i in range(0, len(labels)):
-        ax[0].annotate(labels[i], xy=(labels_dist[i],210), xytext=(labels_dist[i], 250), ha='center', fontsize=10, arrowprops=dict(facecolor='k', arrowstyle="->"))
+        ax[0].annotate(labels[i], xy=(labels_dist[i],210), xytext=(labels_dist[i], 240), ha='center', fontsize=10, arrowprops=dict(facecolor='k', arrowstyle="->"))
 
-    # plot the earthquake magnitude
-    mw = ma.array(gr['log_sum'].values)
-    mw[mask_starts] = ma.masked
+    # plot the summed earthquake magnitude
+    #mw = ma.array(gr['log_sum'].values)
+    #mw[mask_starts] = ma.masked
+    #ax[1].grid(color='0.8', linestyle='--', which='both')
+    #ax[1].plot(gr['fault_dist'], mw, c='b',zorder=100)
+    #ax[1].set_ylabel('$\Sigma$ $M_w$', labelpad=10, fontsize=14)
+
+    # plot the maximum magnitude in each fault dist bin
+    mmax = ma.array(gr['max'].values)
+    mmax[mask_starts] = ma.masked
     ax[1].grid(color='0.8', linestyle='--', which='both')
-    ax[1].plot(gr['fault_dist'], mw, c='b')
+    markerline, stemlines, baseline = ax[1].stem(gr['fault_dist'], mmax, linefmt='blue', use_line_collection=True)
+    markerline.set_markerfacecolor('blue')
+    markerline.set_markeredgecolor('k')
+    stemlines.set_linewidth(0.5)
+    ax[1].set_ylabel('$M_{max}$', labelpad=10, fontsize=14)
+    ax[1].set_ylim(2,)
+
+    # grey bar for creeping segment
     ax[1].axvspan(400, 580, facecolor='0.5', alpha=0.6)
-    ax[1].set_ylabel('$\Sigma$ Mw', labelpad=10, fontsize=14)
     ax[1].set_xlabel('Distance along fault (km)', fontsize=14)
 
     ax[1].set_xlim(100,1100)
+
+    # add the channel slope peaks
+    bbox_props = dict(boxstyle="circle,pad=0.3", fc="white", ec="k", lw=2)
+    for j, txt in enumerate(list(peak_dists)):
+        if j != 0:
+            print(txt)
+            ax[1].annotate(str(int(j)), (list(peak_dists)[j], 8.8), zorder=300, bbox=bbox_props, annotation_clip=False, ha='center')
+            ax[0].vlines(peak_dists[j], -20, -10, colors='red')
+            ax[1].vlines(peak_dists[j], 8, 8.8, colors='red')
+
 
     # save the figure
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_EQs.png', dpi=300)

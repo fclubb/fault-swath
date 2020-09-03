@@ -128,7 +128,12 @@ if __name__ == '__main__':
 
     # channel slope plotting
     if args.channels:
-        swath.plot_channel_slopes_along_fault(DataDirectory, fname_prefix, args.stream_order, output_csv, labels_csv, output_sr_csv, output_shapefile)
+        peak_dists,_ = swath.plot_channel_slopes_along_fault(DataDirectory, fname_prefix, args.stream_order, output_csv, labels_csv, output_sr_csv, output_shapefile)
+
+    # seismic data
+    if args.earthquakes:
+        peak_dists = [136.77180239524552, 357.8805380461444, 548.0578124831882, 723.9269974076383, 974.6591435187026]
+        swath.plot_earthquakes_along_fault(DataDirectory, fname_prefix, output_eq_csv, labels_csv, peak_dists)
 
     if args.basins:
         basins = DataDirectory+fname_prefix+'_basins_WGS84.shp'
@@ -162,9 +167,6 @@ if __name__ == '__main__':
     if args.multiple_so:
         swath.plot_channel_slopes_multiple_SO(DataDirectory,fname_prefix,labels_csv)
 
-    # seismic data
-    if args.earthquakes:
-        swath.plot_earthquakes_along_fault(DataDirectory, fname_prefix, output_eq_csv, labels_csv)
 
 
     print("Done, enjoy your plots!")
