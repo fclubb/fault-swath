@@ -2,8 +2,8 @@
 # FJC 26/11/18
 
 # set backend to run on server
-import matplotlib
-matplotlib.use('Agg')
+#import matplotlib
+#matplotlib.use('Agg')
 
 # general modules
 import numpy as np
@@ -359,16 +359,19 @@ def percentile(n):
     percentile_.__name__ = 'percentile_%s' % n
     return percentile_
 
-def get_median_slope_in_basins(df):
+def get_median_slope_in_basins(river_gdf, basin_gdf):
     """
     Function to get the median slope in each basin and return a new dataframe
     with the median and percentiles of the slope, plus latitude and longitude of the
     basin outlet
+    This requires passing of two geopandas dataframes: the river gdf and the basin gdf.
+    It uses a spatial join to merge them.
     """
+
     gr = df.groupby(['basin_id'])['slope'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'median': 'slope_median', 'std': 'slope_std', 'percentile_25': 'slope_q1', 'percentile_75': 'slope_q2'}).reset_index()
 
     # now get the lat, long, and fault distance of the outlet
-    u = df.groupby('basin_id')['distance_from_outlet'].idxmax()
+    u = df.groupby('basin_id')['distance_from_outlet'].idxmin()
     dist_df = df.loc[u, ['basin_id','latitude', 'longitude', 'fault_dist']].reset_index(drop=1)
     df_merge = pd.merge(gr, dist_df, on='basin_id')
     print(df_merge)
@@ -398,15 +401,13 @@ def process_gps_data(gps_df, threshold_record_length=5, threshold_uplift=5):
 # PLOTTING FUNCTIONS
 #--------------------------------------------------------------------------------------------------
 
-def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, river_csv, labels_csv, slip_rate_csv, fault_points, plate_azimuth=135):
+def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, median_river_shp, labels_csv, slip_rate_csv, fault_points, plate_azimuth=135):
     """
     Function to make plot of channel slopes along the fault compared to various datasets
     """
 
     # csv with the river profiles
-    river_df = pd.read_csv(river_csv)
-    #remove negative channel slopes
-    river_df = river_df[river_df['slope'] > 0]
+    river_df = gpd.read_file(median_river_shp)
 
     # set up a figure
     fig, ax = plt.subplots(nrows=4, ncols=1, figsize=(10,12), sharex=True, sharey=False)
@@ -432,13 +433,10 @@ def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, r
         ax[i].grid(color='0.8', linestyle='--', which='both')
         ax[i].set_ylim(0,0.7)
         ax[i].text(0.04,0.85, titles[i], fontsize=14, transform=ax[i].transAxes, bbox=dict(facecolor='white'))
-        ax[i].set_ylabel('Channel gradient (m/m)', labelpad=10, fontsize=14)
-
-        slope_df = get_median_slope_in_basins(df)
+        ax[i].set_ylabel('Median channel\ngradient (m/m)', labelpad=10, fontsize=14)
 
         # now group by the fault dist and plot percentages
-        gr = slope_df.groupby(['fault_dist'])['slope_median'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
-        # #print(gr)
+        gr = df.groupby(['fault_dist'])['slope_medi'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
 
         # plot the medians
         ax[i].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.4', mec='0.4', c='0.4', capsize=2, alpha=0.1)
@@ -446,28 +444,32 @@ def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, r
         # rolling median of channel slopes
         slopes_df = gr.sort_values(by='fault_dist')
         slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(10, center=True).median()
+        print(df.columns)
+        # add lat and lon information to this
+        #slopes_df = pd.merge(slopes_df, df[['latitude','longitude']], on=['fault_dist'])
+        #print(slopes_df)
 
         # create a mask for gaps in the median slopes
         these_dists = slopes_df['fault_dist'].values
         mask_starts = np.where(these_dists-np.roll(these_dists,1) > 10)[0]
-        print(mask_starts)
+        #print(mask_starts)
         mc = ma.array(slopes_df['slope_rollmedian'].values)
         mc[mask_starts] = ma.masked
         ax[i].plot(slopes_df['fault_dist'], mc, c=colors[i], zorder=100, lw=3, ls='--')
 
         # find and plot peaks in the rolling median
-        indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.35, min_dist=50))
-        print(indexes)
+        indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.5, min_dist=30))
+        #print(indexes)
         peak_dists = slopes_df['fault_dist'].iloc[indexes]
         peak_slopes = slopes_df['slope_rollmedian'].iloc[indexes]
         #peak_dists = these_dists[indexes]
         #peak_slopes = mc[indexes]
-        print(peak_dists)
-        print(peak_slopes)
+        #print(peak_dists)
+        #print(peak_slopes)
         #print("Channel slope peak distances: ", peak_dists.values)
         ax[i].scatter(peak_dists, peak_slopes, marker="*", c='k', s=100, zorder=200)
         for j, txt in enumerate(list(peak_dists)):
-            ax[i].annotate(str(int(txt))+' km', (list(peak_dists)[j], list(peak_slopes)[j]+0.05), zorder=300)
+            ax[i].annotate(str(int(txt))+' km', (list(peak_dists)[j]-10, list(peak_slopes)[j]+0.05), zorder=300, fontsize=10)
 
     # placenames
     labels_df = pd.read_csv(labels_csv)
@@ -481,7 +483,7 @@ def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, r
     ax[2].grid(color='0.8', linestyle='--', which='both')
     ax[2].axvspan(400, 580, facecolor='0.5', alpha=0.6)
     ax[2].errorbar(x=slip_df['fault_dist'], y=slip_df['slip_rate'], yerr=slip_df['slip_rate_u'], fmt='o',ms=8, marker='D', mfc='0.3', mec='k', c='k', capsize=4)
-    ax[2].set_ylabel('Right lateral slip rate (mm/yr)', fontsize=14)
+    ax[2].set_ylabel('InSAR-derived right\nlateral slip rate (mm/yr)', fontsize=14)
     #ax[2].set_ylim(0, slip_df['slip_rate'].max()+0.1)
 
     ax[2].set_xlim(100,1100)
@@ -493,11 +495,12 @@ def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, r
     #az_deltas = pts['azimuth'].diff()
     az_deltas = pts['azimuth'] - plate_azimuth
     ax[3].plot(pts['distance'], az_deltas, c = 'k', lw = 2)
-    ax[3].set_ylabel('$\Delta$ strike azimuth ($^\circ$)', fontsize=14)
+    ax[3].set_ylabel('SAF strike azimuth\nvs plate motion ($^\circ$)', fontsize=14)
     ax[3].axhspan(0, 50, alpha=0.4, color='deepskyblue')
     ax[3].axhspan(-50, 0, alpha=0.4, color='red')
-    ax[3].text(120, -35, 'Restraining (uplift)')
-    ax[3].text(120, 35, 'Releasing (subsidence)')
+    ax[3].grid(color='0.8', linestyle='--', which='both')
+    ax[3].text(120, -35, 'Restraining (uplift proxy)')
+    ax[3].text(120, 35, 'Releasing (subsidence proxy)')
     ax[3].set_ylim(-45,45)
     ax[3].invert_yaxis()
 
@@ -506,6 +509,7 @@ def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, r
     plt.xlabel('Distance along fault (km)', fontsize=14)
 
     # save figure
+    plt.subplots_adjust(hspace=0.3)
     plt.tight_layout()
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_slopes_SO{}.png'.format(stream_order), dpi=300)
     plt.clf()
@@ -531,22 +535,41 @@ def plot_earthquakes_along_fault(DataDirectory, fname_prefix, eq_csv, labels_csv
     fig.add_subplot(111, frameon=False)
     # hide tick and tick label of the big axes
     plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
-
-    #plot n eqs
-    eq_df = pd.read_csv(eq_csv)
+    # add a grid
     ax[0].grid(color='0.8', linestyle='--', which='both')
-    gr = eq_df.groupby(['fault_dist'])['magnitude'].agg(['count','max',log_sum]).reset_index()
+
+    # read in the EQ csv to a dataframe
+    eq_df = pd.read_csv(eq_csv)
+
+    # separate by magntiude to make frequency plot
+    magnitude_thr = 5
+    lower_eq_df = eq_df[eq_df['Mw'] < 6]
+    upper_eq_df = eq_df[eq_df['Mw'] >= 6]
+    dfs = [lower_eq_df, upper_eq_df]
+    colours = ['k', 'b']
+
+    for i, df in enumerate(dfs):
+        gr = df.groupby(['fault_dist'])['Mw'].agg(['count']).reset_index()
+        gr['normalized_count'] = gr['count']/gr['count'].sum()
+        # mc = ma.array(gr['count'].values)
+        #
+        # # create a mask for data gaps
+        # these_dists = gr['fault_dist'].values
+        # mask_starts = np.where(these_dists-np.roll(these_dists,1) > 10)[0]
+        # mc[mask_starts] = ma.masked
+        # plot the frequency for this magnitude
+        ax[0].bar(x=gr['fault_dist'], height=gr['normalized_count'], facecolor=colours[i], zorder=100)
+
+    # finalise the frequency plot
+    ax[0].axvspan(400, 580, facecolor='0.5', alpha=0.6)
+    #ax[0].set_ylim(-10,)
+    ax[0].set_ylabel('Frequency', labelpad=10, fontsize=14)
+
+    #now group to make the magnitude plot
+    gr = eq_df.groupby(['fault_dist'])['Mw'].agg(['max',log_sum]).reset_index()
     # create a mask for data gaps
     these_dists = gr['fault_dist'].values
     mask_starts = np.where(these_dists-np.roll(these_dists,1) > 10)[0]
-
-    mc = ma.array(gr['count'].values)
-    mc[mask_starts] = ma.masked
-    ax[0].plot(gr['fault_dist'], mc, c='k', zorder=100)
-    ax[0].axvspan(400, 580, facecolor='0.5', alpha=0.6)
-    ax[0].set_ylim(-20,)
-    ax[0].set_ylabel('Frequency', labelpad=10, fontsize=14)
-    print(gr)
 
     # placenames
     labels_df = pd.read_csv(labels_csv)
@@ -570,7 +593,7 @@ def plot_earthquakes_along_fault(DataDirectory, fname_prefix, eq_csv, labels_csv
     markerline.set_markerfacecolor('blue')
     markerline.set_markeredgecolor('k')
     stemlines.set_linewidth(0.5)
-    ax[1].set_ylabel('$M_{max}$', labelpad=10, fontsize=14)
+    ax[1].set_ylabel('Maximum $M_w$', labelpad=10, fontsize=14)
     ax[1].set_ylim(2,)
 
     # grey bar for creeping segment
@@ -585,13 +608,54 @@ def plot_earthquakes_along_fault(DataDirectory, fname_prefix, eq_csv, labels_csv
         if j != 0:
             print(txt)
             ax[1].annotate(str(int(j)), (list(peak_dists)[j], 8.8), zorder=300, bbox=bbox_props, annotation_clip=False, ha='center')
-            ax[0].vlines(peak_dists[j], -20, -10, colors='red')
+            #ax[0].vlines(peak_dists[j], -20, -10, colors='red')
             ax[1].vlines(peak_dists[j], 8, 8.8, colors='red')
 
 
     # save the figure
     plt.savefig(DataDirectory+fname_prefix+'_fault_dist_EQs.png', dpi=300)
     plt.clf()
+
+def plot_channel_slopes_vs_earthquakes(DataDirectory, fname_prefix, river_csv, eq_csv, labels_csv, peak_dists):
+    """
+    This function makes a plot of the channel slope data vs. earthquake magnitude and frequency along fault
+    """
+    # csv with the river profiles
+    river_df = pd.read_csv(river_csv)
+    #remove negative channel slopes
+    river_df = river_df[river_df['slope'] > 0]
+
+    # set up a figure
+    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10,8), sharex=True, sharey=False)
+    ax = ax.ravel()
+
+    # make a big subplot to allow sharing of axis labels
+    fig.add_subplot(111, frameon=False)
+    # hide tick and tick label of the big axes
+    plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
+
+    # read in the EQ csv to a dataframe
+    eq_df = pd.read_csv(eq_csv)
+
+    # now make a plot of the channel slope frequencies along fault
+    shallow_river_df = river_df[river_df['slope'] < 0.2]
+    steep_river_df = river_df[river_df['slope'] >= 0.2]
+
+    dfs = [lower_eq_df, upper_eq_df]
+    colours = ['k', 'b']
+
+    for i, df in enumerate(dfs):
+        gr = df.groupby(['fault_dist'])['Mw'].agg(['count']).reset_index()
+        gr['normalized_count'] = gr['count']/gr['count'].sum()
+        # mc = ma.array(gr['count'].values)
+        #
+        # # create a mask for data gaps
+        # these_dists = gr['fault_dist'].values
+        # mask_starts = np.where(these_dists-np.roll(these_dists,1) > 10)[0]
+        # mc[mask_starts] = ma.masked
+        # plot the frequency for this magnitude
+        ax[0].bar(x=gr['fault_dist'], height=gr['normalized_count'], facecolor=colours[i], zorder=100)
+
 
 def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, baseline_shapefile, baseline_points, labels_csv):
     """

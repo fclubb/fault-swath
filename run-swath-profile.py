@@ -5,8 +5,8 @@
 #---------------------------------------------------------------------#
 
 # setting backend to run on server
-import matplotlib
-matplotlib.use('Agg')
+#import matplotlib
+#matplotlib.use('Agg')
 import os
 import sys
 import pandas as pd
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     else:
         print("WARNING! You haven't supplied the data directory. I'm using the current working directory.")
         DataDirectory = os.getcwd()
-    base_dir = '/home/bjdd72/TopographicData/TopographicData/san_andreas/'
+    base_dir = '/home/bjdd72/san_andreas/'
 
     # print the arguments that you used to an output file for reproducibility
     with open(DataDirectory+args.fname_prefix+'_report.csv', 'w') as output:
@@ -84,17 +84,20 @@ if __name__ == '__main__':
         output.close()
 
     # read in the profiles and check if you've calculated the distance along the fault
-    profile_csv = DataDirectory+fname_prefix+'_profiles_SO{}.csv'.format(args.stream_order)
-    output_csv=DataDirectory+fname_prefix+'_profiles_fault_dist_SO{}.csv'.format(args.stream_order)
+    #profile_csv = DataDirectory+fname_prefix+'_profiles_SO{}.csv'.format(args.stream_order)
+    #output_csv=DataDirectory+fname_prefix+'_profiles_fault_dist_SO{}.csv'.format(args.stream_order)
     baseline_shapefile='SanAndreasFault.shp'
     output_shapefile='SanAndreasPoints.shp'
 
     # check if the fault dist csv already exists
-    if not os.path.isfile(output_csv):
-        points, distances = swath.get_points_along_line(DataDirectory,baseline_shapefile,output_shapefile,n=512)
-        coeffs = swath.get_orthogonal_coefficients(points)
-        profile_df = pd.read_csv(profile_csv)
-        swath.bisection_method(points, coeffs, distances, profile_df, output_csv)
+    # if not os.path.isfile(output_csv):
+    #     points, distances = swath.get_points_along_line(DataDirectory,baseline_shapefile,output_shapefile,n=512)
+    #     coeffs = swath.get_orthogonal_coefficients(points)
+    #     profile_df = pd.read_csv(profile_csv)
+    #     swath.bisection_method(points, coeffs, distances, profile_df, output_csv)
+
+    # read in the shapefile with the median channel slopes by basin
+    median_river_shp = DataDirectory+args.fname_prefix+'_channel_slopes_by_basin_SO{}.shp'.format(args.stream_order)
 
     # labels
     labels_csv=base_dir+'Uplift_rates/placenames.csv'
@@ -110,7 +113,7 @@ if __name__ == '__main__':
 
     # seismic data
     eq_csv = base_dir+'Earthquakes/SAF_earthquakes_25km.csv'
-    output_eq_csv =  base_dir+'Earthquakes/SAF_earthquakes_25km_dist.csv'
+    output_eq_csv =  base_dir+'Earthquakes/SAF_earthquakes_25km_dist_Mw.csv'
     if not os.path.isfile(output_eq_csv):
         eq_df = pd.read_csv(eq_csv)
         points, distances = swath.get_points_along_line(DataDirectory,baseline_shapefile,output_shapefile,n=512)
@@ -119,16 +122,16 @@ if __name__ == '__main__':
         swath.bisection_method(points, coeffs, distances, eq_df, output_eq_csv)
 
     # gps data
-    gps_csv=base_dir+'Uplift_rates/gps/MIDAS_IGS08_SAF_50km.csv'
-    output_gps_csv=base_dir+'Uplift_rates/gps/MIDAS_IGS08_SAF_50km_dist.csv'
-    if not os.path.isfile(output_gps_csv):
-        gps_df = pd.read_csv(gps_csv)
-        swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, gps_df, output_gps_csv)
+    # gps_csv=base_dir+'Uplift_rates/gps/MIDAS_IGS08_SAF_50km.csv'
+    # output_gps_csv=base_dir+'Uplift_rates/gps/MIDAS_IGS08_SAF_50km_dist.csv'
+    # if not os.path.isfile(output_gps_csv):
+    #     gps_df = pd.read_csv(gps_csv)
+    #     swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, gps_df, output_gps_csv)
 
 
     # channel slope plotting
     if args.channels:
-        peak_dists,_ = swath.plot_channel_slopes_along_fault(DataDirectory, fname_prefix, args.stream_order, output_csv, labels_csv, output_sr_csv, output_shapefile)
+        peak_dists,_ = swath.plot_channel_slopes_along_fault(DataDirectory, fname_prefix, args.stream_order, median_river_shp, labels_csv, output_sr_csv, output_shapefile)
 
     # seismic data
     if args.earthquakes:
