@@ -75,7 +75,7 @@ if __name__ == '__main__':
     else:
         print("WARNING! You haven't supplied the data directory. I'm using the current working directory.")
         DataDirectory = os.getcwd()
-    base_dir = '/home/bjdd72/san_andreas/'
+    base_dir = '/media/TopographicData/TopographicData/san_andreas/'
 
     # print the arguments that you used to an output file for reproducibility
     with open(DataDirectory+args.fname_prefix+'_report.csv', 'w') as output:

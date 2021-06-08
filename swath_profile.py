@@ -514,8 +514,7 @@ def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, m
     ax[4].grid(color='0.8', linestyle='--', which='both')
     ax[4].plot(pcp_gdf["distance"], pcp_gdf["rvalue_1"], lw=2, c='purple')
     ax[4].fill_between(pcp_gdf["distance"], pcp_gdf["rvalue_1"], 0, facecolor='purple', alpha=0.3)
-    ax[4].xlabel('Distance along fault (km)', fontsize=12)
-    ax[4].ylabel('Mean annual precipitation (mm yr$^{-1}$)', fontsize=12)
+    ax[4].set_ylabel('Mean annual\nprecipitation (mm yr$^{-1}$)', fontsize=14)
     ax[4].set_xlim(100,1100)
     ax[4].set_ylim(0, 2100)
 
