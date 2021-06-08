@@ -95,6 +95,18 @@ def discrete_cmap(N, base_cmap=None):
     cmap_name = base.name + str(N)
     return base.from_list(cmap_name, color_list, N)
 
+def rgba_colours_from_array(array, vmin, vmax, base_cmap=None):
+    """
+    Get an array of RGBA colours from an array of values
+    """
+    base = plt.cm.get_cmap(base_cmap)
+    norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+    rgba_colours = []
+    for x in array:
+        rgba_colours.append(base(norm(x)))
+
+    return rgba_colours
+
 def find_vicenty_distance_along_line(line):
     """
     find the vicenty distance of the coords along a line
