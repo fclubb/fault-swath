@@ -19,3 +19,11 @@ Then use the `environment.yml` to create a conda environment:
 ```
 conda env create -f environment.yml
 ```
+## Running the code
+
+In order to reproduce the figures from the paper we have provided a series of Jupyter notebooks. To run these, navigate to the `notebooks` folder and type the following command into your terminal or Anaconda Powershell:
+```
+conda activate fault-swath
+jupyter notebook
+```
+This will open a local server on your machine in your web-browser. You can then click on the corresponding notebook for each Figure and run the code to reproduce it.

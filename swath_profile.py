@@ -95,18 +95,6 @@ def discrete_cmap(N, base_cmap=None):
     cmap_name = base.name + str(N)
     return base.from_list(cmap_name, color_list, N)
 
-def rgba_colours_from_array(array, vmin, vmax, base_cmap=None):
-    """
-    Get an array of RGBA colours from an array of values
-    """
-    base = plt.cm.get_cmap(base_cmap)
-    norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
-    rgba_colours = []
-    for x in array:
-        rgba_colours.append(base(norm(x)))
-
-    return rgba_colours
-
 def find_vicenty_distance_along_line(line):
     """
     find the vicenty distance of the coords along a line
@@ -413,7 +401,7 @@ def process_gps_data(gps_df, threshold_record_length=5, threshold_uplift=5):
 # PLOTTING FUNCTIONS
 #--------------------------------------------------------------------------------------------------
 
-def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, median_river_shp, labels_csv, slip_rate_csv, fault_points, plate_azimuth=135):
+def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, median_river_shp, labels_csv, slip_rate_csv, fault_points, pcp_shp, plate_azimuth=135):
     """
     Function to make plot of channel slopes along the fault compared to various datasets
     """
@@ -422,7 +410,7 @@ def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, m
     river_df = gpd.read_file(median_river_shp)
 
     # set up a figure
-    fig, ax = plt.subplots(nrows=4, ncols=1, figsize=(10,12), sharex=True, sharey=False)
+    fig, ax = plt.subplots(nrows=5, ncols=1, figsize=(10,15), sharex=True, sharey=False)
     ax = ax.ravel()
 
     # make a big subplot to allow sharing of axis labels
@@ -519,6 +507,17 @@ def plot_channel_slopes_along_fault(DataDirectory, fname_prefix, stream_order, m
     ax[3].set_xlim(100,1100)
     #plt.ylim(0,0.4)
     plt.xlabel('Distance along fault (km)', fontsize=14)
+
+    # plot the mean annual precipitation
+    pcp_gdf = gpd.read_file(pcp_shp)
+    pcp_gdf = pcp_gdf[pcp_gdf['rvalue_1'] > 0]
+    ax[4].grid(color='0.8', linestyle='--', which='both')
+    ax[4].plot(pcp_gdf["distance"], pcp_gdf["rvalue_1"], lw=2, c='purple')
+    ax[4].fill_between(pcp_gdf["distance"], pcp_gdf["rvalue_1"], 0, facecolor='purple', alpha=0.3)
+    ax[4].xlabel('Distance along fault (km)', fontsize=12)
+    ax[4].ylabel('Mean annual precipitation (mm yr$^{-1}$)', fontsize=12)
+    ax[4].set_xlim(100,1100)
+    ax[4].set_ylim(0, 2100)
 
     # save figure
     plt.subplots_adjust(hspace=0.3)

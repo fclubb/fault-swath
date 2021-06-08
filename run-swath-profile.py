@@ -121,6 +121,9 @@ if __name__ == '__main__':
         #swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, eq_df, output_eq_csv)
         swath.bisection_method(points, coeffs, distances, eq_df, output_eq_csv)
 
+    # precipitation data
+    pcp_shp = base_dir+'Precipitation_data/SanAndreas_MAP_Stanford_800m.shp'
+
     # gps data
     # gps_csv=base_dir+'Uplift_rates/gps/MIDAS_IGS08_SAF_50km.csv'
     # output_gps_csv=base_dir+'Uplift_rates/gps/MIDAS_IGS08_SAF_50km_dist.csv'
@@ -131,7 +134,7 @@ if __name__ == '__main__':
 
     # channel slope plotting
     if args.channels:
-        peak_dists,_ = swath.plot_channel_slopes_along_fault(DataDirectory, fname_prefix, args.stream_order, median_river_shp, labels_csv, output_sr_csv, output_shapefile)
+        peak_dists,_ = swath.plot_channel_slopes_along_fault(DataDirectory, fname_prefix, args.stream_order, median_river_shp, labels_csv, output_sr_csv, output_shapefile, pcp_shp)
 
     # seismic data
     if args.earthquakes:
