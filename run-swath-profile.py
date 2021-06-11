@@ -97,7 +97,7 @@ if __name__ == '__main__':
     #     swath.bisection_method(points, coeffs, distances, profile_df, output_csv)
 
     # read in the shapefile with the median channel slopes by basin
-    median_river_shp = DataDirectory+args.fname_prefix+'_channel_slopes_by_basin_SO{}.shp'.format(args.stream_order)
+    median_river_shp = DataDirectory+args.fname_prefix+'_channels_plus_hillslopes_by_basin_SO{}.shp'.format(args.stream_order)
 
     # labels
     labels_csv=base_dir+'Uplift_rates/placenames.csv'
@@ -147,15 +147,16 @@ if __name__ == '__main__':
 
     # hillslope plotting
     if args.hillslopes:
-        hillslope_csv= DataDirectory+fname_prefix+'_hillslopes_SO{}.csv'.format(args.stream_order)
-        output_hillslope_csv=DataDirectory+fname_prefix+'_hillslopes_SO{}_dist.csv'.format(args.stream_order)
-        if not os.path.isfile(output_hillslope_csv):
-            points, distances = swath.get_points_along_line(n=512)
-            coeffs = swath.get_orthogonal_coefficients(points)
-            hillslope_df = pd.read_csv(hillslope_csv)
-            swath.bisection_method(points, coeffs, distances, hillslope_df, output_hillslope_csv)
-        # do the plotting
-        swath.plot_hillslopes_along_fault(output_hillslope_csv)
+        # hillslope_csv= DataDirectory+fname_prefix+'_hillslopes_SO{}.csv'.format(args.stream_order)
+        # output_hillslope_csv=DataDirectory+fname_prefix+'_hillslopes_SO{}_dist.csv'.format(args.stream_order)
+        # if not os.path.isfile(output_hillslope_csv):
+        #     points, distances = swath.get_points_along_line(n=512)
+        #     coeffs = swath.get_orthogonal_coefficients(points)
+        #     hillslope_df = pd.read_csv(hillslope_csv)
+        #     swath.bisection_method(points, coeffs, distances, hillslope_df, output_hillslope_csv)
+        # # do the plotting
+        # swath.plot_hillslopes_along_fault(output_hillslope_csv)
+        swath.plot_channel_slopes_normalised(DataDirectory, fname_prefix, args.stream_order, median_river_shp, labels_csv)
 
     # lithology
     if args.lithology:
