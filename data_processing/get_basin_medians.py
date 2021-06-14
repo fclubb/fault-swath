@@ -17,7 +17,7 @@ def percentile(n):
 
 
 # read in the river profile CSV
-data_dir = '/media/TopographicData/TopographicData/san_andreas/SAF_combined/SAF_only/'
+data_dir = '/raid/fclubb/san_andreas/SAF_combined/SAF_only/'
 df = pd.read_csv(data_dir+'SAF_only_profiles_fault_dist_SO3.csv')
 df = df[df['slope'] > 0]
 df.columns
@@ -31,7 +31,7 @@ ht_df = pd.read_csv(data_dir+'SAF_only_RidgeData_SO3.csv')
 
 # convert the river csv to a geodataframe. Remove the non-unique ID labels - these will be replaced by unique basin IDs
 geometry = [Point(xy) for xy in zip(df.longitude, df.latitude)]
-crs = {'init': 'epsg:4326'} #http://www.spatialreference.org/ref/epsg/2263/
+crs = 'epsg:4326' #http://www.spatialreference.org/ref/epsg/2263/
 river_gdf = gpd.GeoDataFrame(df.drop(['latitude','longitude','basin_id','id','new_id','node'], axis=1), crs=crs, geometry=geometry)
 river_gdf_clean = river_gdf[river_gdf.geometry.type == 'Point']
 
@@ -58,6 +58,7 @@ basin_gdf = basin_gdf.merge(gr, on='unique_id')
 join = gpd.sjoin(basin_gdf, hs_gdf, how='left', op='contains')
 
 # now join the hilltop data - find points within the basin and get the median curvature in each basin
+join = join.drop(['index_right'], axis=1)
 ht_join = gpd.sjoin(ht_gdf, join, how='left', op='within')
 gr = ht_join.groupby(['unique_id'])['curvature'].agg(['median', 'std', percentile(16), percentile(84)]).rename(columns={'median': 'ht_curv_median', 'std': 'ht_curv_std', 'percentile_16': 'ht_curv_16th', 'percentile_84': 'ht_curv_84th'}).reset_index()
 join = join.merge(gr, on='unique_id')
