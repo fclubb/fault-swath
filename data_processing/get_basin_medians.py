@@ -31,8 +31,9 @@ ht_df = pd.read_csv(data_dir+'SAF_only_RidgeData_SO3.csv')
 
 # convert the river csv to a geodataframe. Remove the non-unique ID labels - these will be replaced by unique basin IDs
 geometry = [Point(xy) for xy in zip(df.longitude, df.latitude)]
-crs = 'epsg:4326' #http://www.spatialreference.org/ref/epsg/2263/
+crs = {'init': 'epsg:4326'} #http://www.spatialreference.org/ref/epsg/2263/
 river_gdf = gpd.GeoDataFrame(df.drop(['latitude','longitude','basin_id','id','new_id','node'], axis=1), crs=crs, geometry=geometry)
+river_gdf_clean = river_gdf[river_gdf.geometry.type == 'Point']
 
 # convert the hillslope csv to a geodataframe. Remove the non-unique ID labels
 geometry = [Point(xy) for xy in zip(hs_df.longitude, hs_df.latitude)]
@@ -46,6 +47,7 @@ ht_gdf = gpd.GeoDataFrame(ht_df.drop(['latitude','longitude','basin_id','new_id'
 basin_gdf = gpd.read_file(data_dir+'SAF_only_basins_deflection.shp')
 basin_gdf = basin_gdf.drop(['basin_id'], axis=1)
 basin_gdf['unique_id'] = basin_gdf.index
+basin_gdf = basin_gdf[basin_gdf.geometry.type == 'Polygon']
 
 # merge the river and basins gdf and calculate the median channel slope in each basin
 join = gpd.sjoin(river_gdf, basin_gdf, how='left', op='intersects')
