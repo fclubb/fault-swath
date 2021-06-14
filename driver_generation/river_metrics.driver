@@ -1,0 +1,38 @@
+# This is a driver file for LSDTopoTools
+# Any lines with the # symbol in the first row will be ignored
+
+# File information
+dem read extension: bil
+dem write extension: bil
+read path: $path/$dir_fname/
+write path: $path/$dir_fname/
+read fname: tile_3
+write fname: tile_3
+threshold_contributing_pixels: 1000
+
+# Parameters for DEM processing
+raster_is_filled: false
+min_slope_for_fill: 0.001
+
+# What basins do you want?
+select_basins_by_order: true
+basin_order: 3
+find_complete_basins_in_window: false
+minimum_basin_size_pixels: 1000000
+maximum_basin_size_pixels: 10000000
+
+# What analyses you want to do
+print_spaghetti_profiles_to_csv: false
+print_all_tributaries_to_csv: false
+print_channels_all_sources_to_csv: false
+print_longest_profile: true
+print_hillslope_metrics_to_csv: false
+
+# Parameters to print data
+print_filled_raster: false
+print_basin_raster: true
+print_junctions_to_csv: true
+write hillshade: false
+print_channels_to_csv: true
+print_stream_order_raster: false
+print_junction_index_raster: false
