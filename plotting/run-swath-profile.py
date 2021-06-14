@@ -97,7 +97,7 @@ if __name__ == '__main__':
     #     swath.bisection_method(points, coeffs, distances, profile_df, output_csv)
 
     # read in the shapefile with the median channel slopes by basin
-    median_river_shp = DataDirectory+args.fname_prefix+'_channels_plus_hillslopes_by_basin_SO{}.shp'.format(args.stream_order)
+    median_river_shp = DataDirectory+args.fname_prefix+'_channels_plus_hilltops_by_basin_SO{}.shp'.format(args.stream_order)
 
     # labels
     labels_csv=base_dir+'Uplift_rates/placenames.csv'

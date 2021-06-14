@@ -17,6 +17,7 @@ from matplotlib import rcParams
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 from inspect import signature
+import cmcrameri.cm as crameri_cm
 
 # geospatial modules
 from fiona import collection
@@ -36,6 +37,27 @@ label_size = 12
 #rcParams['font.sans-serif'] = ['arial']
 rcParams['font.size'] = label_size
 plt.rc('axes', titlesize=10)     # fontsize of the axes title
+
+def list_of_hex_colours(N, base_cmap):
+    """
+    Return a list of colors from a colourmap as hex codes
+
+        Arguments:
+            cmap: colormap instance, eg. cm.jet.
+            N: number of colors.
+
+        Author: FJC
+    """
+    cmap = cm.get_cmap(base_cmap, N)
+
+    hex_codes = []
+    #color_idx = np.linspace(0, (base_cmap.N), num=N, endpoint=False)
+    #print(color_idx)
+    for i in range(base_cmap.N):
+        rgb = base_cmap(i)[:3] # will return rgba, we take only first 3 so we get rgb
+        hex_codes.append(mcolors.rgb2hex(rgb))
+        print(mcolors.rgb2hex(rgb))
+    return hex_codes
 
 def azimuth(point1, point2):
     """
@@ -1029,8 +1051,17 @@ def plot_channel_slopes_normalised(DataDirectory, fname_prefix, stream_order, me
     # csv with the basin data
     river_df = gpd.read_file(median_river_shp)
 
+    # invert the curvature values
+    river_df['ht_curv_me'] = np.abs(river_df['ht_curv_me'])
+
+    # Pearson correlations
+    corr_df = river_df.corr(method='pearson')
+    corr_df.to_csv(DataDirectory+fname_prefix+'_pearson_correlation.csv')
+
+    #print(f"Pandas computed Pearson r: {overall_pearson_r}")
+
     # set up a figure
-    fig, ax = plt.subplots(nrows=3, ncols=2, figsize=(18,10), sharex=True, sharey=False)
+    fig, ax = plt.subplots(nrows=4, ncols=2, figsize=(20,12), sharex=True, sharey=False)
     #ax = ax.ravel()
 
     # make a big subplot to allow sharing of axis labels
@@ -1050,6 +1081,8 @@ def plot_channel_slopes_normalised(DataDirectory, fname_prefix, stream_order, me
 
     all_dfs = [east_df, west_df]
     titles = ['North American Plate (east of SAF)', 'Pacific Plate (west of SAF)']
+    n_colors = 4
+    #colours = list_of_hex_colours(n_colors, base_cmap=cm.plasma)
     #colors = ['r', 'b']
     #figlabels = ['a', 'b', 'c', 'd', 'e']
     for i, df in enumerate(all_dfs):
@@ -1057,7 +1090,7 @@ def plot_channel_slopes_normalised(DataDirectory, fname_prefix, stream_order, me
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
         # CHANNEL GRADIENTS
         ax[0][i].grid(color='0.8', linestyle='--', which='both')
-        ax[0][i].set_ylim(0,1)
+        #ax[0][i].set_ylim(0,1)
         ax[0][i].text(0.04,0.85, titles[i], fontsize=14, transform=ax[0][i].transAxes, bbox=dict(facecolor='white'))
         if i == 0:
             ax[0][i].set_ylabel('Median channel\ngradient, $S_c$ (m/m)', labelpad=10, fontsize=16)
@@ -1082,7 +1115,7 @@ def plot_channel_slopes_normalised(DataDirectory, fname_prefix, stream_order, me
         #print(mask_starts)
         mc = ma.array(slopes_df['slope_rollmedian'].values)
         mc[mask_starts] = ma.masked
-        ax[0][i].plot(slopes_df['fault_dist'], mc, c='b', zorder=100, lw=3, ls='-')
+        ax[0][i].plot(slopes_df['fault_dist'], mc, c='#2b93a1', zorder=100, lw=3, ls='-')
 
         # find and plot peaks in the rolling median
         indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.5, min_dist=30))
@@ -1104,7 +1137,7 @@ def plot_channel_slopes_normalised(DataDirectory, fname_prefix, stream_order, me
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
         # HILLSLOPES
         ax[1][i].grid(color='0.8', linestyle='--', which='both')
-        ax[1][i].set_ylim(0,1)
+        #ax[1][i].set_ylim(0,1)
         if i == 0:
             ax[1][i].set_ylabel('Median hillslope\ngradient, $S_h$ (m/m)', labelpad=10, fontsize=16)
 
@@ -1128,7 +1161,7 @@ def plot_channel_slopes_normalised(DataDirectory, fname_prefix, stream_order, me
         #print(mask_starts)
         mc = ma.array(slopes_df['slope_rollmedian'].values)
         mc[mask_starts] = ma.masked
-        ax[1][i].plot(slopes_df['fault_dist'], mc, c='r', zorder=100, lw=3, ls='-')
+        ax[1][i].plot(slopes_df['fault_dist'], mc, c='#EA3546', zorder=100, lw=3, ls='-')
 
         # find and plot peaks in the rolling median
         indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.5, min_dist=30))
@@ -1148,15 +1181,15 @@ def plot_channel_slopes_normalised(DataDirectory, fname_prefix, stream_order, me
         ax[1][i].axvspan(400, 580, facecolor='0.5', alpha=0.6)
 
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-        # NORMALISED
-
+        # HILLTOPS
         ax[2][i].grid(color='0.8', linestyle='--', which='both')
-        ax[2][i].set_ylim(0,1)
+        #ax[2][i].set_ylim(ax[2][i].get_ylim()[::-1])
+        #ax[2][i].invert_yaxis()
         if i == 0:
-            ax[2][i].set_ylabel('Normalised channel\ngradient ($S_c/S_h$)', labelpad=10, fontsize=16)
+            ax[2][i].set_ylabel('Median hilltop\ncurvature, $C_{ht}$ (m$^{-1}$)', labelpad=10, fontsize=16)
 
         # now group by the fault dist and plot percentages
-        gr = df.groupby(['fault_dist'])['slope_norm'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
+        gr = df.groupby(['fault_dist'])['ht_curv_me'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
 
         # plot the medians
         ax[2][i].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.4', mec='0.4', c='0.4', capsize=2, alpha=0.1)
@@ -1175,7 +1208,7 @@ def plot_channel_slopes_normalised(DataDirectory, fname_prefix, stream_order, me
         #print(mask_starts)
         mc = ma.array(slopes_df['slope_rollmedian'].values)
         mc[mask_starts] = ma.masked
-        ax[2][i].plot(slopes_df['fault_dist'], mc, c='purple', zorder=100, lw=3, ls='-')
+        ax[2][i].plot(slopes_df['fault_dist'], mc, c='#662E9B', zorder=100, lw=3, ls='-')
 
         # find and plot peaks in the rolling median
         indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.5, min_dist=30))
@@ -1189,7 +1222,54 @@ def plot_channel_slopes_normalised(DataDirectory, fname_prefix, stream_order, me
         #print("Channel slope peak distances: ", peak_dists.values)
         ax[2][i].scatter(peak_dists, peak_slopes, marker="*", c='k', s=100, zorder=200)
         for j, txt in enumerate(list(peak_dists)):
-            ax[2][i].annotate(str(int(txt))+' km', (list(peak_dists)[j]-10, list(peak_slopes)[j]+0.05), zorder=300, fontsize=10)
+            ax[2][i].annotate(str(int(txt))+' km', (list(peak_dists)[j]-10, list(peak_slopes)[j]+0.02), zorder=300, fontsize=12)
+
+        # highlight the creeping segment
+        ax[2][i].axvspan(400, 580, facecolor='0.5', alpha=0.6)
+
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+        # NORMALISED
+
+        ax[3][i].grid(color='0.8', linestyle='--', which='both')
+        ax[3][i].set_ylim(0,1)
+        if i == 0:
+            ax[3][i].set_ylabel('Normalised channel\ngradient ($S_c/S_h$)', labelpad=10, fontsize=16)
+
+        # now group by the fault dist and plot percentages
+        gr = df.groupby(['fault_dist'])['slope_norm'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
+
+        # plot the medians
+        ax[3][i].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=4, marker='D', mfc='0.4', mec='0.4', c='0.4', capsize=2, alpha=0.1)
+
+        # rolling median of channel slopes
+        slopes_df = gr.sort_values(by='fault_dist')
+        slopes_df['slope_rollmedian'] = slopes_df['median'].rolling(10, center=True).median()
+        print(df.columns)
+        # add lat and lon information to this
+        #slopes_df = pd.merge(slopes_df, df[['latitude','longitude']], on=['fault_dist'])
+        #print(slopes_df)
+
+        # create a mask for gaps in the median slopes
+        these_dists = slopes_df['fault_dist'].values
+        mask_starts = np.where(these_dists-np.roll(these_dists,1) > 10)[0]
+        #print(mask_starts)
+        mc = ma.array(slopes_df['slope_rollmedian'].values)
+        mc[mask_starts] = ma.masked
+        ax[3][i].plot(slopes_df['fault_dist'], mc, c='#F86624', zorder=100, lw=3, ls='-')
+
+        # find and plot peaks in the rolling median
+        indexes = list(peakutils.indexes(slopes_df['slope_rollmedian'], thres=0.5, min_dist=30))
+        #print(indexes)
+        peak_dists = slopes_df['fault_dist'].iloc[indexes]
+        peak_slopes = slopes_df['slope_rollmedian'].iloc[indexes]
+        #peak_dists = these_dists[indexes]
+        #peak_slopes = mc[indexes]
+        #print(peak_dists)
+        #print(peak_slopes)
+        #print("Channel slope peak distances: ", peak_dists.values)
+        ax[3][i].scatter(peak_dists, peak_slopes, marker="*", c='k', s=100, zorder=200)
+        for j, txt in enumerate(list(peak_dists)):
+            ax[3][i].annotate(str(int(txt))+' km', (list(peak_dists)[j]-10, list(peak_slopes)[j]+0.05), zorder=300, fontsize=12)
 
         # placenames
         labels_df = pd.read_csv(labels_csv)
@@ -1199,7 +1279,7 @@ def plot_channel_slopes_normalised(DataDirectory, fname_prefix, stream_order, me
             ax[0][i].annotate(labels[k], xy=(labels_dist[k],0.99), xytext=(labels_dist[k], 1.1), ha='center', fontsize=12, arrowprops=dict(facecolor='k', arrowstyle="->"))
 
         # highlight the creeping segment
-        ax[2][i].axvspan(400, 580, facecolor='0.5', alpha=0.6)
+        ax[3][i].axvspan(400, 580, facecolor='0.5', alpha=0.6)
 
     plt.xlim(100,1100)
     #plt.ylim(0,0.4)
