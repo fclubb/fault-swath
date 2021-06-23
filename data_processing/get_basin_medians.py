@@ -17,16 +17,17 @@ def percentile(n):
 
 
 # read in the river profile CSV
-data_dir = '/raid/fclubb/san_andreas/SAF_combined/SAF_only/'
-df = pd.read_csv(data_dir+'SAF_only_profiles_fault_dist_SO3.csv')
+data_dir = '/raid/fclubb/san_andreas/USGS_NED_10m/SAF_combined/'
+fname = 'SAF_combined_10m'
+df = pd.read_csv(data_dir+fname+'_profiles_SO3.csv')
 df = df[df['slope'] > 0]
 df.columns
 
 # read in the hillslope metrics CSV
-hs_df = pd.read_csv(data_dir+'SAF_only_hillslopes_SO3.csv')
+hs_df = pd.read_csv(data_dir+fname+'_hillslopes_SO3.csv')
 
 # read in the hilltop metrics CSV
-ht_df = pd.read_csv(data_dir+'SAF_only_RidgeData_SO3.csv')
+ht_df = pd.read_csv(data_dir+fname+'_RidgeData_SO3.csv')
 
 
 # convert the river csv to a geodataframe. Remove the non-unique ID labels - these will be replaced by unique basin IDs
@@ -36,16 +37,18 @@ river_gdf = gpd.GeoDataFrame(df.drop(['latitude','longitude','basin_id','id','ne
 river_gdf_clean = river_gdf[river_gdf.geometry.type == 'Point']
 
 # convert the hillslope csv to a geodataframe. Remove the non-unique ID labels
-geometry = [Point(xy) for xy in zip(hs_df.longitude, hs_df.latitude)]
-hs_gdf = gpd.GeoDataFrame(hs_df.drop(['latitude','longitude','basin_id','new_id'], axis=1), crs=crs, geometry=geometry)
+geometry = [Point(xy) for xy in zip(hs_df.longitude_outlet, hs_df.latitude_outlet)]
+hs_gdf = gpd.GeoDataFrame(hs_df, crs=crs, geometry=geometry)
 
 # convert the hilltop csv to a geodataframe. Remove the non-unique ID labels
 geometry = [Point(xy) for xy in zip(ht_df.longitude, ht_df.latitude)]
 ht_gdf = gpd.GeoDataFrame(ht_df.drop(['latitude','longitude','basin_id','new_id'], axis=1), crs=crs, geometry=geometry)
 
 # add a unique id to the basin
-basin_gdf = gpd.read_file(data_dir+'SAF_only_basins_deflection.shp')
-basin_gdf = basin_gdf.drop(['basin_id'], axis=1)
+basin_gdf = gpd.read_file(data_dir+fname+'_basins_SO3.shp')
+# convert the basin GDF to WGS84
+basin_gdf = basin_gdf.to_crs('epsg:4326')
+#basin_gdf = basin_gdf.drop(['basin_id'], axis=1)
 basin_gdf['unique_id'] = basin_gdf.index
 basin_gdf = basin_gdf[basin_gdf.geometry.type == 'Polygon']
 
@@ -65,7 +68,7 @@ join = join.merge(gr, on='unique_id')
 print(len(join.unique_id.unique()))
 
 # write to shapefile
-join.to_file(data_dir+'SAF_only_channels_plus_hilltops_by_basin_SO3.shp')
+join.to_file(data_dir+fname+'_channels_plus_hilltops_by_basin_SO3.shp')
 
 
 

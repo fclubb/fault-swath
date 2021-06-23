@@ -75,7 +75,7 @@ if __name__ == '__main__':
     else:
         print("WARNING! You haven't supplied the data directory. I'm using the current working directory.")
         DataDirectory = os.getcwd()
-    base_dir = '/media/TopographicData/TopographicData/san_andreas/'
+    base_dir = '/raid/fclubb/san_andreas/'
 
     # print the arguments that you used to an output file for reproducibility
     with open(DataDirectory+args.fname_prefix+'_report.csv', 'w') as output:
@@ -98,6 +98,7 @@ if __name__ == '__main__':
 
     # read in the shapefile with the median channel slopes by basin
     median_river_shp = DataDirectory+args.fname_prefix+'_channels_plus_hilltops_by_basin_SO{}.shp'.format(args.stream_order)
+    basins_shp_final = DataDirectory+args.fname_prefix+'_basins_deflection.shp'
 
     # labels
     labels_csv=base_dir+'Uplift_rates/placenames.csv'
@@ -142,8 +143,8 @@ if __name__ == '__main__':
         swath.plot_earthquakes_along_fault(DataDirectory, fname_prefix, output_eq_csv, labels_csv, peak_dists)
 
     if args.basins:
-        basins = DataDirectory+fname_prefix+'_basins_WGS84.shp'
-        swath.plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, baseline_shapefile, output_shapefile, labels_csv)
+        basins = DataDirectory+fname_prefix+'_basins_SO'+str(args.stream_order)+'.shp'
+        swath.plot_basin_orientation_along_fault(DataDirectory, fname_prefix, median_river_shp, baseline_shapefile, output_shapefile, labels_csv, args.stream_order)
 
     # hillslope plotting
     if args.hillslopes:
@@ -156,7 +157,7 @@ if __name__ == '__main__':
         #     swath.bisection_method(points, coeffs, distances, hillslope_df, output_hillslope_csv)
         # # do the plotting
         # swath.plot_hillslopes_along_fault(output_hillslope_csv)
-        swath.plot_channel_slopes_normalised(DataDirectory, fname_prefix, args.stream_order, median_river_shp, labels_csv)
+        swath.plot_channel_slopes_normalised(DataDirectory, fname_prefix, args.stream_order, basins_shp_final, labels_csv)
 
     # lithology
     if args.lithology:
