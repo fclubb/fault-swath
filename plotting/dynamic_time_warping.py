@@ -9,30 +9,6 @@ import numpy.ma as ma
 import matplotlib.pyplot as plt
 import math
 from dtw import *
-from scipy import signal
-#from dtaidistance import dtw_ndim
-
-def shift(xs, n):
-    e = np.empty_like(xs)
-    if n >= 0:
-        e[:n] = np.nan
-        e[n:] = xs[:-n]
-    else:
-        e[n:] = np.nan
-        e[:n] = xs[-n:]
-    return e
-
-def find_nearest_idx(array,value):
-    """
-    Given a value, find the index of the point in the array which is closest
-    to that value.
-    Author: FJC
-    """
-    idx = np.searchsorted(array, value, side="left")
-    if idx > 0 and (idx == len(array) or math.fabs(value - array[idx-1]) < math.fabs(value - array[idx])):
-        return idx-1
-    else:
-        return idx
 
 def dynamic_time_warping(DataDirectory, fname_prefix, median_basin_shp, fault_points, plate_azimuth=135):
 
@@ -96,48 +72,24 @@ def dynamic_time_warping(DataDirectory, fname_prefix, median_basin_shp, fault_po
         # join = join.merge(slopes_df, left_on='fault_dist', right_on='fault_dist')
         # #print(join)      
 
-    #print(river_data)
-
-    # create a new river dataset with a consistent index that's representative of the fault distance - for DTW
-    # new_index = np.arange(river_data['fault_dist'].min(), river_data['fault_dist'].max()+1, step=1, dtype=int)
-    # fault_dists = river_data['fault_dist'].values
-    # print(new_index)
-    # #create a new dataframe with this array as the index
-    # new_river_data = pd.DataFrame(index=new_index)
-    # for i in new_index:
-    #     # find the row of the dataframe that is closest to that fault distance
-    #     idx = find_nearest_idx(fault_dists, i)
-    #     row = river_data.iloc[idx]
-    #     row['fault_dist'] = i
-    #     #print(idx)
-    #     new_river_data = new_river_data.append(row)
 
     print(river_data['fault_dist'])
     # print(new_river_data['fault_dist'])
 
     # remove nans
     river_data = river_data.dropna()
-    # set the fault dist to be the index
-    #river_data = river_data.set_index('fault_dist', drop=False)
-    #print(river_data)
-    distances = river_data['fault_dist'].values
-    #print(distances)
     east_river_data = river_data['river_median_east'].values
     west_river_data = river_data['river_median_west'].values
-    #east_2d_array = np.vstack((distances,east_river_data)).T
-    #west_2d_array = np.vstack((distances,west_river_data)).T
 
     # calculate the DTW alignment object
     # alignment index 1 = indices of the matched points on the NORTH AMERICAN PLATE (East)
     # alignment index 2 = indices of the matched points on the PACIFIC PLATE (West)
-    #alignment = dtw(east_river_data, west_river_data, step_pattern=rabinerJuangStepPattern(6, "c"), keep_internals = True)
     alignment = dtw(east_river_data, west_river_data, keep_internals=True)
 
-    # trying dtaidistance - does this work with 2d arrays?
-    #d = dtw_ndim.distance(east_2d_array, west_2d_array)
-    #print(d)
-
+    # make a twoway plot of the alignment
     alignment.plot(type="twoway", match_indices=len(east_river_data))
+
+    # get the indices to distances along the fault.
     shifted_west_x = np.empty(len(west_river_data))
     shifted_west_y = np.empty(len(west_river_data))
     river_data['alignment_dist'] = np.nan
@@ -155,13 +107,10 @@ def dynamic_time_warping(DataDirectory, fname_prefix, median_basin_shp, fault_po
         river_data.loc[idx, 'alignment_dist'] = east_dist - west_dist # North American curve - Pacific curve.
         river_data.loc[idx, 'shifted_west_data'] = west_gradient
 
-        #TESTING
         west_data_test = west_river_data[alignment.index2[i]]
         shifted_west_y[idx] = west_data_test
         shifted_west_x[idx] = east_dist
 
-   # print(river_data)
-    #print(river_data)
     fig,ax = plt.subplots(nrows=3, ncols=1, figsize=(10,12))
     ax = ax.ravel()
 
@@ -175,12 +124,10 @@ def dynamic_time_warping(DataDirectory, fname_prefix, median_basin_shp, fault_po
     ax[0].grid(color='0.8', linestyle='--', which='both')
     ax[0].plot(river_data['fault_dist'], east_masked, c='#2b93a1', label='North American Plate')
     ax[0].set_ylim(0,0.4)
-    #ax[0].plot(east_river_data, c='#2b93a1', label='North American Plate')
     #mask and plot the west channel gradients
     west_masked = ma.array(river_data['river_median_west'].values)
     west_masked[mask_starts] = ma.masked
     ax[0].plot(river_data['fault_dist'], west_masked, c='#1b5c65', label='Pacific Plate')
-    #ax[0].plot(west_river_data, c='#1b5c65', label='Pacific Plate')
     ax[0].set_ylabel('Median channel\ngradient, $S_c$ (m/m)')
     ax[0].legend(loc='upper left')
     ax[0].set_title('Original channel gradient data along strike')
@@ -190,10 +137,8 @@ def dynamic_time_warping(DataDirectory, fname_prefix, median_basin_shp, fault_po
     shifted_west_masked[mask_starts] = ma.masked
     ax[1].grid(color='0.8', linestyle='--', which='both')
     ax[1].set_ylim(0,0.4)
-    #ax[1].plot(river_data['fault_dist'], shifted_west_masked, c='#1b5c65', label='Pacific Plate')
     ax[1].plot(river_data['fault_dist'], east_masked, c='#2b93a1', label='North American Plate (fixed)')
     ax[1].plot(shifted_west_x, shifted_west_masked, c='#1b5c65', label='Pacific Plate (horizontal shift)')
-    #ax[1].plot(east_river_data, c='#2b93a1', label='North American Plate')
     ax[1].set_ylabel('Median channel\ngradient, $S_c$ (m/m)')
     ax[1].legend(loc='upper left')
     ax[1].set_title('Channel gradient data after dynamic time warping (North American Plate fixed)')
