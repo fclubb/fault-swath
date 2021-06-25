@@ -11,6 +11,7 @@ import os
 import sys
 import pandas as pd
 import swath_profile as swath
+import dynamic_time_warping as dtw
 
 #=============================================================================
 # This is just a welcome screen that is displayed if no arguments are provided.
@@ -56,6 +57,7 @@ if __name__ == '__main__':
     parser.add_argument("-multiple_so", "--multiple_so", type=bool, default=False, help="If this is true I'll plot all the stream orders")
     parser.add_argument("-eq", "--earthquakes", type=bool, default=False, help="If this is true I'll plot the distribution of earthquakes along the fault")
     parser.add_argument("-az", "--azimuth", type=bool, default=False, help="If this is true I'll plot the fault aziumth along strike.")
+    parser.add_argument("-dtw", "--dtw", type=bool, default=False,help="Run dynamic time warping")
 
     args = parser.parse_args()
 
@@ -98,7 +100,7 @@ if __name__ == '__main__':
 
     # read in the shapefile with the median channel slopes by basin
     median_river_shp = DataDirectory+args.fname_prefix+'_channels_plus_hilltops_by_basin_SO{}.shp'.format(args.stream_order)
-    basins_shp_final = DataDirectory+args.fname_prefix+'_basins_deflection{}.shp'.format(args.stream_order)
+    basins_shp_final = DataDirectory+args.fname_prefix+'_basins_deflection_SO{}.shp'.format(args.stream_order)
 
     # labels
     labels_csv=base_dir+'Uplift_rates/placenames.csv'
@@ -174,6 +176,9 @@ if __name__ == '__main__':
     # multiple stream orders
     if args.multiple_so:
         swath.plot_channel_slopes_multiple_SO(DataDirectory,fname_prefix,labels_csv)
+
+    if args.dtw:
+        dtw.dynamic_time_warping(DataDirectory,fname_prefix,basins_shp_final,output_shapefile)
 
 
 

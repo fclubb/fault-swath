@@ -1110,6 +1110,8 @@ def plot_channel_slopes_normalised(DataDirectory, fname_prefix, stream_order, me
         #ax[1].text(0.04,0.85, titles[i], fontsize=14, transform=ax[0][i].transAxes, bbox=dict(facecolor='white'))
         if i == 0:
             ax[0].set_ylabel('Median channel\ngradient, $S_c$ (m/m)', labelpad=10, fontsize=16)
+            # highlight the creeping segment
+            ax[0].axvspan(400, 580, facecolor='0.5', alpha=0.6)
 
         # now group by the fault dist and plot percentages
         gr = df.groupby(['fault_dist'])['channel_sl'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
@@ -1147,9 +1149,6 @@ def plot_channel_slopes_normalised(DataDirectory, fname_prefix, stream_order, me
         #for j, txt in enumerate(list(peak_dists)):
         #    ax[0][i].annotate(str(int(txt))+' km', (list(peak_dists)[j]-10, list(peak_slopes)[j]+0.05), zorder=300, fontsize=11)
 
-        # highlight the creeping segment
-        ax[0].axvspan(400, 580, facecolor='0.5', alpha=0.6)
-
         # add a legend
         ax[0].legend(loc=1)
 
@@ -1159,6 +1158,8 @@ def plot_channel_slopes_normalised(DataDirectory, fname_prefix, stream_order, me
         #ax[1][i].set_ylim(0,1)
         if i == 0:
             ax[1].set_ylabel('Median hillslope\ngradient, $S_h$ (m/m)', labelpad=10, fontsize=16)
+            # highlight the creeping segment
+            ax[1].axvspan(400, 580, facecolor='0.5', alpha=0.6)
 
         # now group by the fault dist and plot percentages
         gr = df.groupby(['fault_dist'])['slope_medi'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
@@ -1196,9 +1197,6 @@ def plot_channel_slopes_normalised(DataDirectory, fname_prefix, stream_order, me
         #for j, txt in enumerate(list(peak_dists)):
         #    ax[1][i].annotate(str(int(txt))+' km', (list(peak_dists)[j]-10, list(peak_slopes)[j]+0.05), zorder=300, fontsize=12)
 
-        # highlight the creeping segment
-        ax[1].axvspan(400, 580, facecolor='0.5', alpha=0.6)
-
         # add a legend
         ax[1].legend(loc=1)
 
@@ -1209,6 +1207,8 @@ def plot_channel_slopes_normalised(DataDirectory, fname_prefix, stream_order, me
         #ax[2][i].invert_yaxis()
         if i == 0:
             ax[2].set_ylabel('Median hilltop\ncurvature, $C_{ht}$ (m$^{-1}$)', labelpad=10, fontsize=16)
+            # highlight the creeping segment
+            ax[2].axvspan(400, 580, facecolor='0.5', alpha=0.6)
 
         # now group by the fault dist and plot percentages
         gr = df.groupby(['fault_dist'])['ht_curv_me'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
@@ -1246,9 +1246,6 @@ def plot_channel_slopes_normalised(DataDirectory, fname_prefix, stream_order, me
         #for j, txt in enumerate(list(peak_dists)):
          #   ax[2][i].annotate(str(int(txt))+' km', (list(peak_dists)[j]-10, list(peak_slopes)[j]+0.02), zorder=300, fontsize=12)
 
-        # highlight the creeping segment
-        ax[2].axvspan(400, 580, facecolor='0.5', alpha=0.6)
-
         # add a legend
         ax[2].legend(loc=1)
 
@@ -1259,6 +1256,8 @@ def plot_channel_slopes_normalised(DataDirectory, fname_prefix, stream_order, me
         ax[3].set_ylim(0,1)
         if i == 0:
             ax[3].set_ylabel('Normalised channel\ngradient ($S_c/S_h$)', labelpad=10, fontsize=16)
+            # highlight the creeping segment
+            ax[3].axvspan(400, 580, facecolor='0.5', alpha=0.6)
 
         # now group by the fault dist and plot percentages
         gr = df.groupby(['fault_dist'])['slope_norm'].agg(['median', 'std', percentile(25), percentile(75)]).rename(columns={'percentile_25': 'q1', 'percentile_75': 'q2'}).reset_index()
@@ -1302,9 +1301,6 @@ def plot_channel_slopes_normalised(DataDirectory, fname_prefix, stream_order, me
         labels_dist = labels_df['fault_dist']
         for k in range(0, len(labels)):
             ax[0].annotate(labels[k], xy=(labels_dist[k],0.49), xytext=(labels_dist[k], 0.6), ha='center', fontsize=12, arrowprops=dict(facecolor='k', arrowstyle="->"))
-
-        # highlight the creeping segment
-        ax[3].axvspan(400, 580, facecolor='0.5', alpha=0.6)
 
         # add a legend
         ax[3].legend(loc=1)
