@@ -75,7 +75,7 @@ if __name__ == '__main__':
     else:
         print("WARNING! You haven't supplied the data directory. I'm using the current working directory.")
         DataDirectory = os.getcwd()
-    base_dir = '/raid/fclubb/san_andreas/'
+    base_dir = '/media/TopographicData/TopographicData/san_andreas/'
 
     # print the arguments that you used to an output file for reproducibility
     with open(DataDirectory+args.fname_prefix+'_report.csv', 'w') as output:
@@ -98,7 +98,7 @@ if __name__ == '__main__':
 
     # read in the shapefile with the median channel slopes by basin
     median_river_shp = DataDirectory+args.fname_prefix+'_channels_plus_hilltops_by_basin_SO{}.shp'.format(args.stream_order)
-    basins_shp_final = DataDirectory+args.fname_prefix+'_basins_deflection.shp'
+    basins_shp_final = DataDirectory+args.fname_prefix+'_basins_deflection{}.shp'.format(args.stream_order)
 
     # labels
     labels_csv=base_dir+'Uplift_rates/placenames.csv'
