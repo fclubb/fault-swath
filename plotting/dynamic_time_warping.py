@@ -59,102 +59,115 @@ def dynamic_time_warping(DataDirectory, fname_prefix, median_basin_shp, fault_po
         gr = df.groupby(['fault_dist'])['slope_medi'].agg(['median']).reset_index()
         slopes_df = gr.sort_values(by='fault_dist')
         slopes_df['hillslope_median'] = slopes_df['median'].rolling(10, center=True).median()
-        hillslope_data.append(slopes_df['hillslope_median'].values)
-        # join = join.merge(slopes_df, left_on='fault_dist', right_on='fault_dist')
-        # #print(slopes_df)
+        if i == 0:
+            river_data = river_data.merge(slopes_df, on='fault_dist').rename(columns={'hillslope_median': 'hillslope_median_east'}).drop(columns='median')
+        else:
+            river_data = river_data.merge(slopes_df, on='fault_dist').rename(columns={'hillslope_median': 'hillslope_median_west'}).drop(columns='median')
+
 
         # # calculate rolling median of hilltop curvature
         # # calculate rolling median of hillslopes
         gr = df.groupby(['fault_dist'])['ht_curv_me'].agg(['median']).reset_index()
         slopes_df = gr.sort_values(by='fault_dist')
         slopes_df['ht_curv_median'] = slopes_df['median'].rolling(10, center=True).median()
-        hilltop_data.append(slopes_df['ht_curv_median'].values)
-        # join = join.merge(slopes_df, left_on='fault_dist', right_on='fault_dist')
-        # #print(join)      
+        if i == 0:
+            river_data = river_data.merge(slopes_df, on='fault_dist').rename(columns={'ht_curv_median': 'ht_curv_median_east'}).drop(columns='median')
+        else:
+            river_data = river_data.merge(slopes_df, on='fault_dist').rename(columns={'ht_curv_median': 'ht_curv_median_west'}).drop(columns='median')
 
 
-    print(river_data['fault_dist'])
+    print(river_data)
     # print(new_river_data['fault_dist'])
 
-    # remove nans
-    river_data = river_data.dropna()
-    east_river_data = river_data['river_median_east'].values
-    west_river_data = river_data['river_median_west'].values
+    # loop through each metric and perform DTW
+    metrics = ['river_median', 'hillslope_median', 'ht_curv_median']
+    # different colours for each metric
+    colours = [['#2b93a1', '#1b5c65'],
+               ['#EA3546', '#b91324'],
+               ['#662E9B', '#411d62']]
+    y_labels = ['Median channel\ngradient, $S_c$ (m/m)', 
+                'Median hillslope\ngradient, $S_h$ (m/m)',
+                'Median hilltop\ncurvature, $C_{ht}$ (m$^{-1}$)']
+    for j,m in enumerate(metrics):
+        river_data = river_data.dropna()
+        east_river_data = river_data[m+'_east'].values
+        west_river_data = river_data[m+'_west'].values
+        print("METRIC: ", m)
 
-    # calculate the DTW alignment object
-    # alignment index 1 = indices of the matched points on the NORTH AMERICAN PLATE (East)
-    # alignment index 2 = indices of the matched points on the PACIFIC PLATE (West)
-    alignment = dtw(east_river_data, west_river_data, keep_internals=True)
+        # calculate the DTW alignment object
+        # alignment index 1 = indices of the matched points on the NORTH AMERICAN PLATE (East)
+        # alignment index 2 = indices of the matched points on the PACIFIC PLATE (West)
+        alignment = dtw(east_river_data, west_river_data, keep_internals=True)
 
-    # make a twoway plot of the alignment
-    alignment.plot(type="twoway", match_indices=len(east_river_data))
+        # make a twoway plot of the alignment
+        #alignment.plot(type="twoway", match_indices=len(east_river_data))
 
-    # get the indices to distances along the fault.
-    shifted_west_x = np.empty(len(west_river_data))
-    shifted_west_y = np.empty(len(west_river_data))
-    river_data['alignment_dist'] = np.nan
-    river_data['shifted_west_data'] = np.nan
-    # save the indices of the matching points to the dataframe
-    for i, idx in enumerate(alignment.index1):
-        # find the fault distance of the east matching point
-        east_dist = river_data.iloc[alignment.index1[i]].at['fault_dist']
-        #print(east_dist)
-        # find the fault distance of the west matching point
-        west_dist = river_data.iloc[alignment.index2[i]].at['fault_dist']
-        # find the channel slopes of the Pacific Plate and shift the index to the matching point on the
-        # North American Plate
-        west_gradient = river_data.iloc[alignment.index2[i]].at['river_median_west']
-        river_data.loc[idx, 'alignment_dist'] = east_dist - west_dist # North American curve - Pacific curve.
-        river_data.loc[idx, 'shifted_west_data'] = west_gradient
+        # get the indices to distances along the fault.
+        shifted_west_x = np.empty(len(west_river_data))
+        shifted_west_y = np.empty(len(west_river_data))
+        river_data['alignment_dist'] = np.nan
+        river_data['shifted_west_data'] = np.nan
+        # save the indices of the matching points to the dataframe
+        for i, idx in enumerate(alignment.index1):
+            # find the fault distance of the east matching point
+            east_dist = river_data.iloc[alignment.index1[i]].at['fault_dist']
+            #print(east_dist)
+            # find the fault distance of the west matching point
+            west_dist = river_data.iloc[alignment.index2[i]].at['fault_dist']
+            # find the channel slopes of the Pacific Plate and shift the index to the matching point on the
+            # North American Plate
+            west_gradient = river_data.iloc[alignment.index2[i]].at[m+'_west']
+            river_data.loc[idx, 'alignment_dist'] = east_dist - west_dist # North American curve - Pacific curve.
+            river_data.loc[idx, 'shifted_west_data'] = west_gradient
 
-        west_data_test = west_river_data[alignment.index2[i]]
-        shifted_west_y[idx] = west_data_test
-        shifted_west_x[idx] = east_dist
+            west_data_test = west_river_data[alignment.index2[i]]
+            shifted_west_y[idx] = west_data_test
+            shifted_west_x[idx] = east_dist
 
-    fig,ax = plt.subplots(nrows=3, ncols=1, figsize=(10,12))
-    ax = ax.ravel()
+        fig,ax = plt.subplots(nrows=3, ncols=1, figsize=(10,10))
+        ax = ax.ravel()
 
-    # create a mask for gaps in the median slopes
-    these_dists = river_data['fault_dist'].values
-    mask_starts = np.where(these_dists-np.roll(these_dists,1) > 10)[0]
+        # create a mask for gaps in the median slopes
+        these_dists = river_data['fault_dist'].values
+        mask_starts = np.where(these_dists-np.roll(these_dists,1) > 10)[0]
 
-    # mask and plot the east channel gradients
-    east_masked = ma.array(river_data['river_median_east'].values)
-    east_masked[mask_starts] = ma.masked
-    ax[0].grid(color='0.8', linestyle='--', which='both')
-    ax[0].plot(river_data['fault_dist'], east_masked, c='#2b93a1', label='North American Plate')
-    ax[0].set_ylim(0,0.4)
-    #mask and plot the west channel gradients
-    west_masked = ma.array(river_data['river_median_west'].values)
-    west_masked[mask_starts] = ma.masked
-    ax[0].plot(river_data['fault_dist'], west_masked, c='#1b5c65', label='Pacific Plate')
-    ax[0].set_ylabel('Median channel\ngradient, $S_c$ (m/m)')
-    ax[0].legend(loc='upper left')
-    ax[0].set_title('Original channel gradient data along strike')
+        # mask and plot the east channel gradients
+        east_masked = ma.array(river_data[m+'_east'].values)
+        east_masked[mask_starts] = ma.masked
+        ax[0].grid(color='0.8', linestyle='--', which='both')
+        ax[0].plot(river_data['fault_dist'], east_masked, lw=3, c=colours[j][0], label='North American Plate')
+        #ax[0].set_ylim(0,0.4)
+        #mask and plot the west channel gradients
+        west_masked = ma.array(river_data[m+'_west'].values)
+        west_masked[mask_starts] = ma.masked
+        ax[0].plot(river_data['fault_dist'], west_masked, lw=3, ls=(0, (3, 1, 1, 1)), c=colours[j][1], label='Pacific Plate')
+        ax[0].set_ylabel(y_labels[j])
+        ax[0].legend(loc='upper left')
+        ax[0].set_title('Original data along strike')
 
-    # plot the aligned curves
-    shifted_west_masked = ma.array(shifted_west_y)
-    shifted_west_masked[mask_starts] = ma.masked
-    ax[1].grid(color='0.8', linestyle='--', which='both')
-    ax[1].set_ylim(0,0.4)
-    ax[1].plot(river_data['fault_dist'], east_masked, c='#2b93a1', label='North American Plate (fixed)')
-    ax[1].plot(shifted_west_x, shifted_west_masked, c='#1b5c65', label='Pacific Plate (horizontal shift)')
-    ax[1].set_ylabel('Median channel\ngradient, $S_c$ (m/m)')
-    ax[1].legend(loc='upper left')
-    ax[1].set_title('Channel gradient data after dynamic time warping (North American Plate fixed)')
+        # plot the aligned curves
+        shifted_west_masked = ma.array(shifted_west_y)
+        shifted_west_masked[mask_starts] = ma.masked
+        ax[1].grid(color='0.8', linestyle='--', which='both')
+        #ax[1].set_ylim(0,0.4)
+        ax[1].plot(river_data['fault_dist'], east_masked, lw=3, c=colours[j][0], label='North American Plate (fixed)')
+        ax[1].plot(shifted_west_x, shifted_west_masked, lw=3, ls=(0, (3, 1, 1, 1)), c=colours[j][1], label='Pacific Plate (horizontal shift)')
+        ax[1].set_ylabel(y_labels[j])
+        ax[1].legend(loc='upper left')
+        ax[1].set_title('Data after dynamic time warping (North American Plate fixed)')
 
-    # mask and plot the offsets
-    offset_masked = ma.array(river_data['alignment_dist'].values)
-    offset_masked[mask_starts] = ma.masked
-    ax[2].grid(color='0.8', linestyle='--', which='both')
-    ax[2].plot(river_data['fault_dist'], offset_masked, lw=2, c='black')
-    plt.xlabel('Distance along fault (km)')
-    ax[2].set_ylabel('Channel gradient\nhorizontal offset (km)')
-    ax[2].set_title('Local horizontal offset between North American Plate and Pacific Plate')
+        # mask and plot the offsets
+        offset_masked = ma.array(river_data['alignment_dist'].values)
+        offset_masked[mask_starts] = ma.masked
+        ax[2].grid(color='0.8', linestyle='--', which='both')
+        ax[2].plot(river_data['fault_dist'], offset_masked, lw=2, c='black')
+        plt.xlabel('Distance along fault (km)')
+        ax[2].set_ylabel('Horizontal offset (km)')
+        ax[2].set_title('Local horizontal offset between North American Plate and Pacific Plate')
 
-    plt.subplots_adjust(hspace=0.2)
-    plt.savefig(DataDirectory+fname_prefix+"_channels_dtw.png", transparent=False, dpi=300)
-    plt.show()
+        plt.subplots_adjust(hspace=0.2)
+        plt.savefig(DataDirectory+fname_prefix+"_{}_dtw.png".format(m), transparent=False, dpi=300)
+        #plt.show()
 
 
 
