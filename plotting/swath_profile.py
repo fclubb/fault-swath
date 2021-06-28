@@ -738,10 +738,8 @@ def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, base
         else:
             basin_df = pd.read_csv(output_basin_csv)
 
-        # merge the basin gdf with the df
-        gdf['fault_dist'] = basin_df['fault_dist']
-        gdf['direction'] = basin_df['direction']
-        print(len(basin_df))
+        # create a gdf from this DF
+        gdf = gpd.GeoDataFrame(basin_df, geometry=basin_df['geometry'], crs='EPSG:4326')
         #print(fault_pts)
 
         gdf['deflection'] = gdf.apply(deflection, axis=1, fault_pts=fault_pts)
