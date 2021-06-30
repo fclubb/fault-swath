@@ -19,15 +19,16 @@ def percentile(n):
 # read in the river profile CSV
 data_dir = '/raid/fclubb/san_andreas/USGS_NED_10m/SAF_combined/'
 fname = 'SAF_combined_10m'
-df = pd.read_csv(data_dir+fname+'_profiles_SO3.csv')
+so = 5
+df = pd.read_csv(data_dir+fname+'_profiles_SO{}.csv'.format(so))
 df = df[df['slope'] > 0]
 df.columns
 
 # read in the hillslope metrics CSV
-hs_df = pd.read_csv(data_dir+fname+'_hillslopes_SO3.csv')
+hs_df = pd.read_csv(data_dir+fname+'_hillslopes_SO{}.csv'.format(so))
 
 # read in the hilltop metrics CSV
-ht_df = pd.read_csv(data_dir+fname+'_RidgeData_SO3.csv')
+ht_df = pd.read_csv(data_dir+fname+'_RidgeData_SO{}.csv'.format(so))
 
 
 # convert the river csv to a geodataframe. Remove the non-unique ID labels - these will be replaced by unique basin IDs
@@ -45,7 +46,7 @@ geometry = [Point(xy) for xy in zip(ht_df.longitude, ht_df.latitude)]
 ht_gdf = gpd.GeoDataFrame(ht_df.drop(['latitude','longitude','basin_id','new_id'], axis=1), crs=crs, geometry=geometry)
 
 # add a unique id to the basin
-basin_gdf = gpd.read_file(data_dir+fname+'_basins_SO3.shp')
+basin_gdf = gpd.read_file(data_dir+fname+'_basins_SO{}.shp'.format(so))
 # convert the basin GDF to WGS84
 basin_gdf = basin_gdf.to_crs('epsg:4326')
 #basin_gdf = basin_gdf.drop(['basin_id'], axis=1)
@@ -68,7 +69,7 @@ join = join.merge(gr, on='unique_id')
 print(len(join.unique_id.unique()))
 
 # write to shapefile
-join.to_file(data_dir+fname+'_channels_plus_hilltops_by_basin_SO3.shp')
+join.to_file(data_dir+fname+'_channels_plus_hilltops_by_basin_SO{}.shp'.format(so))
 
 
 
