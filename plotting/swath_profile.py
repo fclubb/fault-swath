@@ -73,7 +73,7 @@ def deflection(row, fault_pts):
     the fault strike.
     """
     # get the basin orientation vector
-    point1 = row['centroids']
+    point1 = (row['centroids'])
     point2 = [row['longitude'], row['latitude']]
     basin_vec = np.array([(row['longitude'] - row['centroids'].x), (row['latitude'] - row['centroids'].y)])
 
@@ -191,7 +191,7 @@ def get_points_along_line(DataDirectory, baseline_shapefile, output_shapefile, n
             # find the distance between this point and the previous point in metres (vicenty)
             temp_metric = GeoPyDist((point.y, point.x), (points[-1].y, points[-1].x)).km
             temp_azimuth = azimuth(points[-1], point)
-            print(temp_azimuth)
+            #print(temp_azimuth)
         metric_dist+=temp_metric
         #print(metric_dist)
         temp_dist+=dist
@@ -375,6 +375,76 @@ def bisection_method(points, coeffs, distances, df, output_csv):
 
     df.to_csv(output_csv, index=False)
     return df
+
+def bisection_method_gdf(points, coeffs, distances, gdf, output_shp):
+    """
+    Use a bisectioning method (https://en.wikipedia.org/wiki/Bisection_method)
+    to find the nearest point along the fault to each channel in the river cluster csv
+
+    Args:
+        points: list of shapely points along the fault
+        coeffs: list of the coefficients of the line orthogonal to each point
+        distances: list of the distances along the fault
+        cluster_csv: name of the csv file with the cluster info
+    """
+    print("CHECKING SOME LENGTHS")
+    # read in the csv to a pandas dataframe
+    #df = pd.read_csv(cluster_csv)
+    cluster_x = gdf.longitude.values
+    cluster_y = gdf.latitude.values
+    print(cluster_x, cluster_y)
+    alpha = np.empty(len(cluster_x))
+
+    m = int(math.log(len(points),2))
+    #print(m)
+    # start with the middle baseline point (q = 2^(m-1))
+    i = 1
+    qs = np.full(len(cluster_x), 2**(int(m-1)))
+    #print(qs)
+    #print(coeffs)
+    while (int(m)-1-i >= -1):
+        t0=time.time()
+        cs = np.asarray([coeffs[q] for q in qs])
+        t1=time.time()
+        print("cs executed in: ", t1-t0)
+        # calculate alpha: ax+bx+c=alpha for each river point (x and y from river point,
+        # a, b, and c from the line)
+        t0=time.time()
+        alpha = np.sign(cs[:,0]*cluster_x + cs[:,1]*cluster_y + cs[:,2])
+        t1=time.time()
+        print("alpha executed in: ", t1-t0)
+        # if alpha > 0, river point is to the right of the line. If alpha < 0, river point is
+        # to the left. If alpha = 0, point is on the line.
+        # Take further baseline point depending on whether alpha is positive or negative
+        t0=time.time()
+        if (m-1-i >= 0):
+            qs = qs + alpha*2**(m-1-i)
+        else:
+            # last iteration
+            qs = qs + (alpha-1)/2
+            #qs = [q_old + int((a-1)/2) for q_old,a in zip(qs, alpha)]
+        t1=time.time()
+        print("qs executed in: ", t1-t0)
+        print("Iteration", i, "executed in", t1-t0)
+        i+=1
+
+    # qs is now the index of the distance of the closest distance along the fault to each point in the cluster dataframe.  # first get the distance that each one represents
+    fault_dists = pd.Series([distances[int(q)] for q in qs])
+    # append the distances to the dataframe
+    gdf['fault_dist'] = fault_dists.values
+    #print(df)
+
+    # use the indices to assign whether the points are east or west of the fault
+    # we calculate this based on the equation
+    # dir = (x - x_1)(y_2 - y_1) - (y - y_1)(x_2 - x_1)
+    # if dir < 0 : point is E of line, if dir > 0 : point is W of line
+    dirs = pd.Series([(cluster_x[i] - points[int(q)].x)*(points[int(q+1)].y - points[int(q)].y) - (cluster_y[i] - points[int(q)].y)*(points[int(q+1)].x - points[int(q)].x) for i, q in enumerate(qs)])
+    #print(dirs)
+    gdf['direction'] = dirs.values
+
+    print(gdf)
+    gdf.to_file(output_shp, geometry=gdf['geometry'], crs=gdf.crs)
+    return gdf
 
 def percentile(n):
     def percentile_(x):
@@ -698,50 +768,23 @@ def plot_channel_slopes_vs_earthquakes(DataDirectory, fname_prefix, river_csv, e
         ax[0].bar(x=gr['fault_dist'], height=gr['normalized_count'], facecolor=colours[i], zorder=100)
 
 
-def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, baseline_shapefile, baseline_points, labels_csv, stream_order):
+def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, output_shapefile, labels_csv, stream_order):
     """
     This function reads in a shapefile of the basins and then plots their orientation
     compared to the fault strike
     """
-    # read in the shapefile of fault points
-    fault_pts = gpd.read_file(DataDirectory+baseline_points)
 
+    fault_pts = gpd.read_file(DataDirectory+output_shapefile)
     # check if you have calculated basin deflection, and if not then calculate it
     basins_file = DataDirectory+fname_prefix+'_basins_deflection'+str(stream_order)+'.shp'
     if not os.path.isfile(basins_file):
-        # get the basins shapefile
         gdf = gpd.read_file(basins)
         crs = gdf.crs
         centroids = gdf['geometry'].to_crs('epsg:32610').centroid
         gdf['centroids'] = centroids.to_crs(crs)
+        print(gdf.centroids)
         #print(gdf['centroids'])
         gdf['basin_area'] = gdf['geometry'].to_crs('epsg:32610').area
-        gdf = gdf.rename(columns={"latitude_o": "latitude", "longitude_": "longitude"})
-        #print(np.isnan(gdf['latitude']))
-        # remove basins with nan values
-        gdf = gdf[np.isnan(gdf['latitude']) == False]
-        print(len(gdf))
-
-        # check if you have already calculated the distance along the fault for each basin.
-        output_basin_csv = DataDirectory+fname_prefix+'_channels_plus_hilltops_by_basin_SO'+str(stream_order)+'_dist.csv'
-        if not os.path.isfile(output_basin_csv):
-            # change the column names to latitue and longitude so they can be read properly
-            print(gdf.columns)
-            # convert to geographic coordinate system
-            gdf = gdf.to_crs('EPSG:4326')
-            points = list(fault_pts['geometry'])
-            #print(points)
-            distances = fault_pts['distance']
-            coeffs = get_orthogonal_coefficients(points)
-            basin_df = bisection_method(points, coeffs, distances, gdf, output_basin_csv)
-            #print(basin_df)
-        else:
-            basin_df = pd.read_csv(output_basin_csv)
-
-        # create a gdf from this DF
-        gdf = gpd.GeoDataFrame(basin_df, geometry=basin_df['geometry'], crs='EPSG:4326')
-        #print(fault_pts)
-
         gdf['deflection'] = gdf.apply(deflection, axis=1, fault_pts=fault_pts)
         gdf = gpd.GeoDataFrame(gdf, geometry=gdf['geometry'], crs='EPSG:4326')
         gdf = gdf.drop(columns=['centroids'])
@@ -786,7 +829,7 @@ def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, base
         #gr = g.apply(lambda x: pd.Series(np.average(x['deflection'], weights=None)).reset_index(name='Deflection_weighted')).reset_index()
         area = this_df.groupby(['fault_dist'])['basin_area'].median()
         print(area)
-        ax[i].scatter(x=gr['fault_dist'], y=gr['Deflection_weighted'], c='0.5', edgecolor='k', zorder=2, s=area/1000, marker='D', alpha=0.2)
+        ax[i].scatter(x=gr['fault_dist'], y=gr['Deflection_weighted'], c='0.5', edgecolor='k', zorder=2, s=area/10000, marker='D', alpha=0.2)
         ax[i].axvspan(400, 580, facecolor='0.8', alpha=0.6, zorder=1)
         #ax[i].errorbar(x=gr['fault_dist'], y=gr['median'], yerr=[gr['median']-gr['q1'], gr['q2']-gr['median']], fmt='o',ms=2, c='0.5', alpha=0.2, capsize=2, zorder=1)
 
@@ -802,6 +845,8 @@ def plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins, base
         mc = ma.array(slopes_df['rollmedian'].values)
         mc[mask_starts] = ma.masked
         ax[i].plot(slopes_df['fault_dist'], mc, c=colors[i], zorder=100, lw=3, ls='-')
+
+        ax[i].set_ylim(30,75)
 
     # placenames
     labels_df = pd.read_csv(labels_csv)
@@ -1060,7 +1105,7 @@ def plot_channel_slopes_normalised(DataDirectory, fname_prefix, stream_order, me
     """
 
     # csv with the basin data
-    river_df = gpd.read_file(median_river_shp)
+    river_df = pd.read_csv(median_river_shp)
 
     # invert the curvature values
     river_df['ht_curv_me'] = np.abs(river_df['ht_curv_me'])

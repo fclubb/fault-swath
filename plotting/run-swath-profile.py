@@ -10,6 +10,8 @@
 import os
 import sys
 import pandas as pd
+import geopandas as gpd
+import numpy as np
 import swath_profile as swath
 import dynamic_time_warping as dtw
 
@@ -100,7 +102,19 @@ if __name__ == '__main__':
 
     # read in the shapefile with the median channel slopes by basin
     median_river_shp = DataDirectory+args.fname_prefix+'_channels_plus_hilltops_by_basin_SO{}.shp'.format(args.stream_order)
-    basins_shp_final = DataDirectory+args.fname_prefix+'_basins_deflection_SO{}.shp'.format(args.stream_order)
+    basins_final = DataDirectory+args.fname_prefix+'_channels_plus_hilltops_by_basin_SO{}_dist.shp'.format(args.stream_order)
+    if not os.path.isfile(basins_final):
+        print ("I didn't find a file with the distance along fault of each basin, calculating...")
+        gdf = gpd.read_file(median_river_shp)
+        crs = gdf.crs
+        gdf = gdf.rename(columns={"latitude_o": "latitude", "longitude_": "longitude"})
+        gdf = gdf[np.isnan(gdf['latitude']) == False]
+        points, distances = swath.get_points_along_line(DataDirectory,baseline_shapefile,output_shapefile,n=512)
+        coeffs = swath.get_orthogonal_coefficients(points)
+        #swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, eq_df, output_eq_csv)
+        swath.bisection_method_gdf(points, coeffs, distances, gdf, basins_final)
+        #swath.get_distance_along_fault_from_points(DataDirectory, baseline_shapefile, gdf, basins_final)
+    #basin_df_final = pd.read_csv(basins_final)
 
     # labels
     labels_csv=base_dir+'Uplift_rates/placenames.csv'
@@ -145,8 +159,7 @@ if __name__ == '__main__':
         swath.plot_earthquakes_along_fault(DataDirectory, fname_prefix, output_eq_csv, labels_csv, peak_dists)
 
     if args.basins:
-        basins = DataDirectory+fname_prefix+'_basins_SO'+str(args.stream_order)+'.shp'
-        swath.plot_basin_orientation_along_fault(DataDirectory, fname_prefix, median_river_shp, baseline_shapefile, output_shapefile, labels_csv, args.stream_order)
+        swath.plot_basin_orientation_along_fault(DataDirectory, fname_prefix, basins_final, output_shapefile, labels_csv, args.stream_order)
 
     # hillslope plotting
     if args.hillslopes:
@@ -159,7 +172,7 @@ if __name__ == '__main__':
         #     swath.bisection_method(points, coeffs, distances, hillslope_df, output_hillslope_csv)
         # # do the plotting
         # swath.plot_hillslopes_along_fault(output_hillslope_csv)
-        swath.plot_channel_slopes_normalised(DataDirectory, fname_prefix, args.stream_order, basins_shp_final, labels_csv)
+        swath.plot_channel_slopes_normalised(DataDirectory, fname_prefix, args.stream_order, basins_final, labels_csv)
 
     # lithology
     if args.lithology:
@@ -178,7 +191,7 @@ if __name__ == '__main__':
         swath.plot_channel_slopes_multiple_SO(DataDirectory,fname_prefix,labels_csv)
 
     if args.dtw:
-        dtw.dynamic_time_warping(DataDirectory,fname_prefix,basins_shp_final,output_shapefile)
+        dtw.dynamic_time_warping(DataDirectory,fname_prefix,basins_final,output_shapefile)
 
 
 
